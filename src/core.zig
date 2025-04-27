@@ -6,6 +6,7 @@ const RegFile = @import("registers.zig").RegisterFile;
 const SM = @import("SM.zig").SM;
 const assert = std.debug.assert;
 const log = std.log.scoped(.Core);
+const utils = @import("utils.zig");
 
 cluster_ctx: *Cluster,
 thread_ctx: *Thread,
@@ -88,6 +89,12 @@ pub const Instruction = packed struct {
     src0: Operand,
     src1: Operand,
     literal: u32,
+
+    const InstructionSelf = @This();
+
+    pub fn toBytes(self: *const InstructionSelf) []const u8 {
+        return utils.toBytes(InstructionSelf, self);
+    }
 };
 
 fn intAsSlice(comptime T: type, value: T) ![]u8 {

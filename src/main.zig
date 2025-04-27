@@ -8,9 +8,6 @@ const RegFile = @import("registers.zig").RegisterFile;
 const Core = @import("core.zig").Core;
 const constants = @import("constants.zig");
 
-fn toBytes(comptime t: type, s: *const t) []const u8 {
-    return @as([*]const u8, @ptrCast(s))[0..@sizeOf(t)];
-}
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -43,8 +40,8 @@ pub fn main() !void {
         .mod = .{},
         .flags = .{},
     };
-    try prog.appendSlice(toBytes(Core.Instruction, &in));
-    try prog.appendSlice(toBytes(Core.Instruction, &in2));
+    try prog.appendSlice(in.toBytes());
+    try prog.appendSlice(in2.toBytes());
     // try prog.appendSlice(&[_]u8{ 24, 4, 192, 0, 128, 1, 128, 1, 0, 180, 0, 0, 0, 0, 0, 0 });
     // try prog.appendNTimes(0, 13);
 
