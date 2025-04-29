@@ -20,23 +20,23 @@ pub fn main() !void {
     var prog = std.ArrayList(u8).init(allocator);
     const in = Core.Instruction{
         .format = .MEM,
-        .op = .st,
-        .dtype = .i8,
+        .op = .mov,
+        .dtype = .f32,
         .dst = .{ .kind = .reg, .value = 6 },
         .src0 = .{ .kind = .none, .value = 0 },
         .src1 = .{ .kind = .none, .value = 0 },
-        .literal = 90,
+        .literal = @bitCast(@as(f32, 9.99)),
         .mod = .{},
         .flags = .{},
     };
     const in2 = Core.Instruction{
         .format = .MEM,
-        .op = .st,
-        .dtype = .i8,
+        .op = .mov,
+        .dtype = .f32,
         .dst = .{ .kind = .reg, .value = 1 },
-        .src0 = .{ .kind = .none, .value = 0 },
+        .src0 = .{ .kind = .reg, .value = 6 },
         .src1 = .{ .kind = .none, .value = 0 },
-        .literal = 250,
+        .literal = 0,
         .mod = .{},
         .flags = .{},
     };
@@ -66,7 +66,7 @@ pub fn main() !void {
         }
     }
     dev.debug();
-    std.Thread.sleep(50);
+    std.log.debug("{any}", .{dev.SMs.items[0].register_file.registers[1]});
     // dev.SMs.items[0].register_file.debug();
     // std.log.info("==========================", .{});
     // dev.SMs.items[1].register_file.debug();
