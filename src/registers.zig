@@ -34,9 +34,9 @@ pub fn set(self: *Self, place: u64, data: []const u8) void {
     @memcpy(self.registers[place][0..data.len], data);
 }
 
-pub fn get(self: *Self, place: u64) [4]u8 {
+pub fn get(self: *Self, place: u64) []u8 {
     assert(place <= constants.max_register_count);
-    return self.registers[place];
+    return &self.registers[place];
 }
 
 pub fn debug(self: *Self) void {
