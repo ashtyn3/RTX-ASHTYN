@@ -16,15 +16,6 @@ kernel: *Kernel,
 
 const Self = @This();
 
-// pub const MemLayer = enum(u4) {
-//     none = 0x0,
-//     shared = 0x1,
-//     local = 0x2,
-//     global = 0x3,
-//     constant = 0x4,
-//     param = 0x5,
-// };
-
 pub const Format = enum(u3) {
     ALU = 0x0, // 2 or 3 operand math
     MEM = 0x1, // load/store/atomic
