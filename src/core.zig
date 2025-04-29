@@ -40,10 +40,12 @@ pub const Operation = enum(u7) {
     ld = 0x01,
     st = 0x02,
 
-    add = 0x03,
-    sub = 0x04,
-    mul = 0x05,
-    div = 0x06,
+    mov = 0x03,
+
+    add = 0x04,
+    sub = 0x05,
+    mul = 0x06,
+    div = 0x07,
 };
 
 pub const DataType = enum(u4) {
@@ -51,10 +53,10 @@ pub const DataType = enum(u4) {
     f16 = 0x1,
     f32 = 0x2,
     f64 = 0x3,
-    i8 = 0x4,
-    i16 = 0x5,
-    i32 = 0x6,
-    i64 = 0x7,
+    b8 = 0x4,
+    b16 = 0x5,
+    b32 = 0x6,
+    b64 = 0x7,
     u8 = 0x8,
     u16 = 0x9,
     u32 = 0xA,
@@ -104,15 +106,33 @@ fn intAsSlice(comptime T: type, value: T) ![]u8 {
     return &slice;
 }
 
-fn dtypeAsSlice(dtype: DataType, lit: anytype) ![]u8 {
+fn floatAsSlice(comptime F: type, value: F) ![]u8 {
+    const IntType = switch (@sizeOf(F)) {
+        4 => u32,
+        8 => u64,
+        else => @panic("Unsupported float size"),
+    };
+    return try intAsSlice(IntType, @bitCast(value));
+}
+
+fn dtypeAsSlice(dtype: DataType, lit: anytype) ![]const u8 {
     switch (dtype) {
-        .i32 => {
+        .f64 => {
+            return try floatAsSlice(f64, @floatFromInt(lit));
+        },
+        .f32 => {
+            return try floatAsSlice(f32, @floatFromInt(lit));
+        },
+        .b64 => {
+            return try intAsSlice(u64, @intCast(lit));
+        },
+        .b32 => {
             return try intAsSlice(u32, @intCast(lit));
         },
-        .i16 => {
+        .b16 => {
             return try intAsSlice(u16, @intCast(lit));
         },
-        .i8 => {
+        .b8 => {
             return try intAsSlice(u8, @intCast(lit));
         },
         else => {},
@@ -120,20 +140,44 @@ fn dtypeAsSlice(dtype: DataType, lit: anytype) ![]u8 {
     return &[_]u8{};
 }
 
+fn getSrcVal(self: *Self, op: Operand) ?[]const u8 {
+    if (op.kind == .none) {
+        return null;
+    }
+    if (op.kind == .reg) {
+        const r_data = self.register_file.get(self.thread_ctx.reg_min + op.value);
+        return @constCast(r_data);
+    } else unreachable;
+}
+
+fn putRegisterDstVal(self: *Self, ins: Instruction, sl: []const u8) void {
+    if (ins.dtype == .f64 or ins.dtype == .b64 or ins.dtype == .u64) {
+        assert((ins.dst.value + 1) <= (self.thread_ctx.reg_max - self.thread_ctx.reg_min)); // spread 64 bit numbers into two consecutive registers
+        self.register_file.set(self.thread_ctx.reg_min + ins.dst.value, sl[0..1]);
+        self.register_file.set(self.thread_ctx.reg_min + ins.dst.value + 1, sl[2..4]);
+    } else {
+        self.register_file.set(self.thread_ctx.reg_min + ins.dst.value, sl);
+    }
+}
+
 fn mem_ops(self: *Self, ins: Instruction) !void {
     switch (ins.op) {
-        .st => {
+        .mov => {
             switch (ins.dst.kind) {
                 .reg => {
-                    if (ins.src0.kind == .none and ins.src1.kind == .none) {
-                        if (ins.dtype == .f64 or ins.dtype == .i64) {
-                            @panic("Bad data type size for register");
-                        } else {
-                            const sl = try dtypeAsSlice(ins.dtype, ins.literal);
-                            self.register_file.set(self.thread_ctx.reg_min + ins.dst.value, sl);
+                    if (ins.src0.kind == .none and ins.src1.kind == .none) { // move literal to register
+                        self.putRegisterDstVal(ins, try dtypeAsSlice(ins.dtype, ins.literal));
+                    } else { // move to other register
+                        const src0 = self.getSrcVal(ins.src0);
+                        const src1 = self.getSrcVal(ins.src1);
+                        if (src0) |s0| {
+                            assert(ins.src0.kind == .reg);
+                            self.putRegisterDstVal(ins, s0);
                         }
-                    } else {
-                        unreachable;
+                        if (src1) |s1| {
+                            assert(ins.src1.kind == .reg);
+                            self.putRegisterDstVal(ins, s1);
+                        }
                     }
                 },
                 else => {
