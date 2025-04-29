@@ -109,10 +109,10 @@ fn floatAsSlice(comptime F: type, value: F) ![]u8 {
 fn dtypeAsSlice(dtype: DataType, lit: anytype) ![]const u8 {
     switch (dtype) {
         .f64 => {
-            return try floatAsSlice(f64, @floatFromInt(lit));
+            return try intAsSlice(u64, lit);
         },
         .f32 => {
-            return try floatAsSlice(f32, @floatFromInt(lit));
+            return try intAsSlice(u32, lit);
         },
         .b64 => {
             return try intAsSlice(u64, @intCast(lit));

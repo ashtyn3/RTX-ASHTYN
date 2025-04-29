@@ -25,7 +25,7 @@ pub fn main() !void {
         .dst = .{ .kind = .reg, .value = 6 },
         .src0 = .{ .kind = .none, .value = 0 },
         .src1 = .{ .kind = .none, .value = 0 },
-        .literal = @bitCast(@as(f32, 9.99)),
+        .literal = @bitCast(@as(f32, 9.9)),
         .mod = .{},
         .flags = .{},
     };
@@ -66,7 +66,7 @@ pub fn main() !void {
         }
     }
     dev.debug();
-    std.log.debug("{any}", .{dev.SMs.items[0].register_file.registers[1]});
+    std.log.debug("{any}", .{@as(f32, @bitCast(dev.SMs.items[0].register_file.registers[6]))});
     // dev.SMs.items[0].register_file.debug();
     // std.log.info("==========================", .{});
     // dev.SMs.items[1].register_file.debug();
