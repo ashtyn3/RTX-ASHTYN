@@ -181,6 +181,7 @@ fn mem_ops(self: *Self, ins: Instruction) !void {
         },
     }
 }
+
 pub fn exec(self: *Self) !void {
     const pc = self.cluster_ctx.pc.get();
     const raw_instr = self.kernel.at(pc);
@@ -192,10 +193,9 @@ pub fn exec(self: *Self) !void {
         return;
     }
     const v = std.mem.bytesToValue(Instruction, raw_instr);
-    // _ = ins_head;
     // std.log.debug("id={any} SM={any} pc={any}", .{ self.thread_ctx.id, self.SM_ctx.id, self.cluster_ctx.pc.get() });
     // std.log.debug("id={any} min_reg={any} max_reg={any}", .{ self.thread_ctx.id, self.thread_ctx.reg_min, self.thread_ctx.reg_max });
-    std.log.debug("id={any} SM={any} got={} raw={any}", .{ self.thread_ctx.id, self.SM_ctx.id, v, raw_instr });
+    // std.log.debug("id={any} SM={any} got={} raw={any}", .{ self.thread_ctx.id, self.SM_ctx.id, v, raw_instr });
     switch (v.format) {
         .MEM => {
             try self.mem_ops(v);
