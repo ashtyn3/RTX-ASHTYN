@@ -41,7 +41,9 @@ pub fn get(self: *Self, place: u64) []u8 {
 
 pub fn debug(self: *Self) void {
     for (0..constants.max_register_count) |i| {
-        std.log.info("r{any}={any}", .{ i, self.get(i) });
+        if (!std.mem.allEqual(u8, self.get(i), 0)) {
+            std.log.info("r{any}={any}", .{ i, self.get(i) });
+        }
     }
 }
 

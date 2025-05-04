@@ -7,6 +7,7 @@ const SM = @import("SM.zig").SM;
 const assert = std.debug.assert;
 const log = std.log.scoped(.Core);
 const utils = @import("utils.zig");
+const ALU = @import("ALU.zig");
 
 cluster_ctx: *Cluster,
 thread_ctx: *Thread,
@@ -41,7 +42,6 @@ pub const Operation = enum(u7) {
 
 pub const DataType = enum(u4) {
     none = 0x0,
-    f16 = 0x1,
     f32 = 0x2,
     f64 = 0x3,
     b8 = 0x4,
@@ -52,11 +52,10 @@ pub const DataType = enum(u4) {
     u16 = 0x9,
     u32 = 0xA,
     u64 = 0xB,
-    ptr = 0xC,
-    vec4 = 0xD,
-    custom = 0xF,
+    // ptr = 0xC,
+    // vec4 = 0xD,
+    // custom = 0xF,
 };
-
 pub const Modifier = packed struct {
     abs: bool = false,
     neg: bool = false,
@@ -64,7 +63,7 @@ pub const Modifier = packed struct {
     omod: u2 = 0, // 0 = none, 1 = *2, 2 = *4, 3 = /2
 };
 pub const Operand = packed struct {
-    kind: enum(u2) { reg, mem, imm, none },
+    kind: enum(u2) { reg, mem, none },
     value: u16,
 };
 
@@ -90,43 +89,48 @@ pub const Instruction = packed struct {
     }
 };
 
-fn intAsSlice(comptime T: type, value: T) ![]u8 {
+pub inline fn intAsSlice(comptime T: type, value: T) []u8 {
     const size = @sizeOf(T);
     var slice = [_]u8{0} ** size;
     std.mem.writeInt(T, &slice, value, .little);
     return &slice;
 }
 
-fn floatAsSlice(comptime F: type, value: F) ![]u8 {
-    const IntType = switch (@sizeOf(F)) {
-        4 => u32,
-        8 => u64,
-        else => @panic("Unsupported float size"),
-    };
-    return try intAsSlice(IntType, @bitCast(value));
-}
-
-fn dtypeAsSlice(dtype: DataType, lit: anytype) ![]const u8 {
+pub fn dtypeAsSlice(dtype: DataType, lit: anytype) []const u8 {
     switch (dtype) {
         .f64 => {
-            return try intAsSlice(u64, lit);
+            return intAsSlice(u64, lit);
         },
         .f32 => {
-            return try intAsSlice(u32, lit);
+            return intAsSlice(u32, lit);
+        },
+        .u16 => {
+            return intAsSlice(u16, @intCast(lit));
+        },
+        .u32 => {
+            return intAsSlice(u32, lit);
+        },
+        .u64 => {
+            return intAsSlice(u64, lit);
+        },
+        .u8 => {
+            return intAsSlice(u8, @intCast(lit));
         },
         .b64 => {
-            return try intAsSlice(u64, @intCast(lit));
+            return intAsSlice(u64, @intCast(lit));
         },
         .b32 => {
-            return try intAsSlice(u32, @intCast(lit));
+            return intAsSlice(u32, @intCast(lit));
         },
         .b16 => {
-            return try intAsSlice(u16, @intCast(lit));
+            return intAsSlice(u16, @intCast(lit));
         },
         .b8 => {
-            return try intAsSlice(u8, @intCast(lit));
+            return intAsSlice(u8, @intCast(lit));
         },
-        else => {},
+        .none => {
+            unreachable;
+        },
     }
     return &[_]u8{};
 }
@@ -137,8 +141,9 @@ fn getSrcVal(self: *Self, op: Operand) ?[]const u8 {
     }
     if (op.kind == .reg) {
         const r_data = self.register_file.get(self.thread_ctx.reg_min + op.value);
-        return @constCast(r_data);
-    } else unreachable;
+        return r_data;
+    }
+    return null;
 }
 
 fn putRegisterDstVal(self: *Self, ins: Instruction, sl: []const u8) void {
@@ -157,7 +162,7 @@ fn mem_ops(self: *Self, ins: Instruction) !void {
             switch (ins.dst.kind) {
                 .reg => {
                     if (ins.src0.kind == .none and ins.src1.kind == .none) { // move literal to register
-                        self.putRegisterDstVal(ins, try dtypeAsSlice(ins.dtype, ins.literal));
+                        self.putRegisterDstVal(ins, dtypeAsSlice(ins.dtype, ins.literal));
                     } else { // move to other register
                         const src0 = self.getSrcVal(ins.src0);
                         const src1 = self.getSrcVal(ins.src1);
@@ -181,6 +186,27 @@ fn mem_ops(self: *Self, ins: Instruction) !void {
         },
     }
 }
+pub fn ALU_handle(self: *Self, ins: Instruction) !void {
+    if (ins.src0.kind != .none and ins.src1.kind != .none) {
+        const arg1 = ALU.wrap(ins.dtype, @constCast(self.getSrcVal(ins.src0).?));
+        const arg2 = ALU.wrap(ins.dtype, @constCast(self.getSrcVal(ins.src1).?));
+
+        // std.log.debug("{any} + {any}", .{ arg1, arg2 });
+        const v = switch (ins.op) {
+            .add => arg1.add(arg2),
+            .sub => arg1.sub(arg2),
+            .mul => arg1.mul(arg2),
+            .div => arg1.div(arg2),
+            else => {
+                @panic("undefined for ALU");
+            },
+        };
+        var b = try self.SM_ctx.device.allocator.alloc(u8, @sizeOf(u32));
+        v.unwrap(&b);
+
+        self.putRegisterDstVal(ins, b);
+    }
+}
 
 pub fn exec(self: *Self) !void {
     const pc = self.cluster_ctx.pc.get();
@@ -199,6 +225,9 @@ pub fn exec(self: *Self) !void {
     switch (v.format) {
         .MEM => {
             try self.mem_ops(v);
+        },
+        .ALU => {
+            try self.ALU_handle(v);
         },
         else => {
             unreachable;

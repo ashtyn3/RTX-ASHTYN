@@ -22,10 +22,10 @@ pub fn main() !void {
         .format = .MEM,
         .op = .mov,
         .dtype = .f32,
-        .dst = .{ .kind = .reg, .value = 6 },
+        .dst = .{ .kind = .reg, .value = 1 },
         .src0 = .{ .kind = .none, .value = 0 },
         .src1 = .{ .kind = .none, .value = 0 },
-        .literal = @bitCast(@as(f32, 9.9)),
+        .literal = @bitCast(@as(f32, 1.111)),
         .mod = .{},
         .flags = .{},
     };
@@ -33,22 +33,34 @@ pub fn main() !void {
         .format = .MEM,
         .op = .mov,
         .dtype = .f32,
-        .dst = .{ .kind = .reg, .value = 1 },
-        .src0 = .{ .kind = .reg, .value = 6 },
+        .dst = .{ .kind = .reg, .value = 2 },
+        .src0 = .{ .kind = .reg, .value = 1 },
         .src1 = .{ .kind = .none, .value = 0 },
+        .literal = 0,
+        .mod = .{},
+        .flags = .{},
+    };
+    const in3 = Core.Instruction{
+        .format = .ALU,
+        .op = .add,
+        .dtype = .f32,
+        .dst = .{ .kind = .reg, .value = 3 },
+        .src0 = .{ .kind = .reg, .value = 1 },
+        .src1 = .{ .kind = .reg, .value = 2 },
         .literal = 0,
         .mod = .{},
         .flags = .{},
     };
     try prog.appendSlice(in.toBytes());
     try prog.appendSlice(in2.toBytes());
+    try prog.appendSlice(in3.toBytes());
     // try prog.appendSlice(&[_]u8{ 24, 4, 192, 0, 128, 1, 128, 1, 0, 180, 0, 0, 0, 0, 0, 0 });
     // try prog.appendNTimes(0, 13);
 
     dev.kernel.prog = prog.items;
 
     dev.clock.tick();
-    dev.setThreads(5);
+    dev.setThreads(1);
     dev.clock.tick();
 
     for (0..constants.constants.sm_count) |i| {
@@ -66,7 +78,11 @@ pub fn main() !void {
         }
     }
     dev.debug();
-    std.log.debug("{any}", .{@as(f32, @bitCast(dev.SMs.items[0].register_file.registers[6]))});
+    // dev.SMs.items[0].register_file.debug();
+    // std.log.debug("{any}", .{dev.SMs.items[0].register_file});
+    const sl = dev.SMs.items[0].register_file.get(3);
+    const v = std.mem.readInt(u32, @ptrCast(sl.ptr), .little);
+    std.log.debug("{d}", .{@as(f32, @bitCast(v))});
     // dev.SMs.items[0].register_file.debug();
     // std.log.info("==========================", .{});
     // dev.SMs.items[1].register_file.debug();

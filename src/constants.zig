@@ -14,6 +14,7 @@ const config = struct {
     sm_size: u64 = ops.SM_SIZE,
     // sm count
     sm_count: u64 = ops.SM_COUNT,
+    slow_clock: u64 = ops.SLOW_CLOCK,
 };
 
 pub const constants: config = .{};

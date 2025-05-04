@@ -1,12 +1,13 @@
 const Bus = @import("bus.zig").Bus;
 const std = @import("std");
 const log = std.log.scoped(.Clock);
+const constants = @import("constants.zig").constants;
 
 bus: *Bus(u1, 1),
 const Self = @This();
 
 pub fn tick(self: *Self) void {
-    std.Thread.sleep(std.time.ns_per_ms);
+    std.Thread.sleep(if (constants.slow_clock == 1) std.time.ns_per_ms else 1);
     if (self.bus.get() == 0) {
         self.bus.put(1);
         return;

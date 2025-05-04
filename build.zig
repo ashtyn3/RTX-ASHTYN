@@ -45,6 +45,7 @@ pub fn build(b: *std.Build) void {
     options.addOption(u64, "MAX_PROGRAM_LEN", int(env_map.get("MAX_PROGRAM_LEN"), "1280"));
     options.addOption(u64, "SM_SIZE", int(env_map.get("SM_SIZE"), "50"));
     options.addOption(u64, "SM_COUNT", int(env_map.get("SM_COUNT"), "2"));
+    options.addOption(u64, "SLOW_CLOCK", int(env_map.get("SLOW_CLOCK"), "0"));
 
     // This creates another `std.Build.Step.Compile`, but this one builds an executable
     // rather than a static library.
