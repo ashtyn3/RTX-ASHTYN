@@ -201,10 +201,15 @@ pub fn ALU_handle(self: *Self, ins: Instruction) !void {
                 @panic("undefined for ALU");
             },
         };
-        var b = try self.SM_ctx.device.allocator.alloc(u8, @sizeOf(u32));
-        v.unwrap(&b);
+        switch (arg1.value) {
+            inline else => |_, tag| {
+                const t = @FieldType(ALU.Value, @tagName(tag));
+                var b = try self.SM_ctx.device.allocator.alloc(u8, @sizeOf(t));
+                v.unwrap(&b);
 
-        self.putRegisterDstVal(ins, b);
+                self.putRegisterDstVal(ins, b);
+            },
+        }
     }
 }
 

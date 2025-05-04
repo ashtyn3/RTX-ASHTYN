@@ -21,18 +21,18 @@ pub fn main() !void {
     const in = Core.Instruction{
         .format = .MEM,
         .op = .mov,
-        .dtype = .f32,
+        .dtype = .u32,
         .dst = .{ .kind = .reg, .value = 1 },
         .src0 = .{ .kind = .none, .value = 0 },
         .src1 = .{ .kind = .none, .value = 0 },
-        .literal = @bitCast(@as(f32, 1.111)),
+        .literal = @bitCast(@as(u32, 32)),
         .mod = .{},
         .flags = .{},
     };
     const in2 = Core.Instruction{
         .format = .MEM,
         .op = .mov,
-        .dtype = .f32,
+        .dtype = .u32,
         .dst = .{ .kind = .reg, .value = 2 },
         .src0 = .{ .kind = .reg, .value = 1 },
         .src1 = .{ .kind = .none, .value = 0 },
@@ -43,7 +43,7 @@ pub fn main() !void {
     const in3 = Core.Instruction{
         .format = .ALU,
         .op = .add,
-        .dtype = .f32,
+        .dtype = .u32,
         .dst = .{ .kind = .reg, .value = 3 },
         .src0 = .{ .kind = .reg, .value = 1 },
         .src1 = .{ .kind = .reg, .value = 2 },
@@ -82,7 +82,7 @@ pub fn main() !void {
     // std.log.debug("{any}", .{dev.SMs.items[0].register_file});
     const sl = dev.SMs.items[0].register_file.get(3);
     const v = std.mem.readInt(u32, @ptrCast(sl.ptr), .little);
-    std.log.debug("{d}", .{@as(f32, @bitCast(v))});
+    std.log.debug("{d}", .{@as(u32, @bitCast(v))});
     // dev.SMs.items[0].register_file.debug();
     // std.log.info("==========================", .{});
     // dev.SMs.items[1].register_file.debug();
