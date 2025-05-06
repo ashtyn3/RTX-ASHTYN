@@ -21,6 +21,8 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    const dzig = b.dependency("tokamak", .{});
+
     // We will also create a module for our other entry point, 'main.zig'.
     const exe_mod = b.createModule(.{
         // `root_source_file` is the Zig "entry point" of the module. If a module
@@ -31,6 +33,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe_mod.addImport("tokamak", dzig.module("tokamak"));
 
     const env_map = std.process.getEnvMap(b.allocator) catch {
         @panic("Failed to init env map");
@@ -53,6 +56,8 @@ pub fn build(b: *std.Build) void {
         .name = "gpu",
         .root_module = exe_mod,
     });
+
+    // b.step("test", "Run all tests").dependOn(&all_tests.step); // if using all_tests
 
     exe.root_module.addOptions("build_options", options);
 
@@ -84,15 +89,15 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const exe_unit_tests = b.addTest(.{
-        .root_module = exe_mod,
+    const unit_tests = b.addTest(.{
+        .root_source_file = b.path("src/tests.zig"),
+        // .root_module = exe_mod,
     });
+    unit_tests.root_module.addOptions("build_options", options);
 
-    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+    const run_exe_unit_tests = b.addRunArtifact(unit_tests);
 
-    // Similar to creating the run step earlier, this exposes a `test` step to
-    // the `zig build --help` menu, providing a way for the user to request
-    // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_exe_unit_tests.step);
+    test_step.dependOn(&b.addInstallArtifact(unit_tests, .{}).step);
 }
