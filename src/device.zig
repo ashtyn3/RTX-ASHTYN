@@ -17,24 +17,23 @@ SMs: std.ArrayList(*SM),
 returned: *Bus(u8, 1),
 kernel: *Kernel,
 thread_count: u64,
+global_memory: *GlobalMemory,
 
 const Self = @This();
 
 pub fn init(a: std.mem.Allocator, clock: *Clock) !*Self {
     const s = try a.create(Self);
     const k = try a.create(Kernel);
+    const gmem = try GlobalMemory.init(a, clock);
+
     const sms = std.ArrayList(*SM).init(a);
-    s.* = .{ .clock = clock, .signal = try .init(a), .thread_size = try .init(a), .allocator = a, .SMs = sms, .kernel = k, .thread_count = 0, .returned = try .init(a) };
+    s.* = .{ .clock = clock, .signal = try .init(a), .thread_size = try .init(a), .allocator = a, .SMs = sms, .kernel = k, .thread_count = 0, .returned = try .init(a), .global_memory = gmem };
     return s;
 }
 
-pub fn launch(self: *Self, id: u64) void {
+pub fn launch(self: *Self, id: u64) !void {
     const sm = self.allocator.create(SM) catch {
         @panic("Failed to create root SM");
-    };
-
-    const gmem = GlobalMemory.init(self.allocator, self.clock) catch {
-        @panic("Failed to launch global memory");
     };
 
     const regfile = RegFile.init(self.allocator) catch {
@@ -64,9 +63,9 @@ pub fn launch(self: *Self, id: u64) void {
     }
     sm.* = .{
         .id = id,
-        .clusters = cls.items,
+        .clusters = try cls.toOwnedSlice(),
         .device = self,
-        .global_memory_controller = gmem,
+        .global_memory_controller = self.global_memory,
         .register_file = regfile,
         .state = .Ready,
     };
@@ -75,6 +74,22 @@ pub fn launch(self: *Self, id: u64) void {
         @panic("failed new SM");
     };
     // sm.scheduler();
+}
+pub fn destroy(self: *Self) void {
+    self.allocator.destroy(self.clock.bus);
+    self.allocator.destroy(self.clock);
+    self.allocator.destroy(self.kernel);
+    self.allocator.destroy(self.returned);
+    self.allocator.destroy(self.signal);
+    self.allocator.destroy(self.thread_size);
+    self.global_memory.destroy();
+    self.allocator.destroy(self.global_memory);
+    for (self.SMs.items) |s| {
+        s.destroy();
+        // self.allocator.destroy(s.global_memory_controller);
+        // self.allocator.destroy(s.register_file);
+    }
+    self.SMs.deinit();
 }
 
 pub fn setSignal(self: *Self) void {

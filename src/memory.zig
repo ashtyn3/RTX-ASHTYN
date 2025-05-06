@@ -20,6 +20,8 @@ pub const ReadRecieve = struct {
 };
 pub const ReadSend = struct {
     data: []u8,
+    pc: u64,
+    thread_id: u64,
     start: u64,
     len: u8,
 };
@@ -31,6 +33,7 @@ read_recieving_bus: *Bus(ReadRecieve, constants.bus_max),
 read_sending_bus: *Bus(ReadSend, constants.bus_max),
 
 write_recieving_bus: *Bus(WriteRecieve, constants.bus_max),
+allocator: std.mem.Allocator,
 
 const Self = @This();
 
@@ -42,8 +45,15 @@ pub fn init(a: std.mem.Allocator, clock: *Clock) !*Self {
         .read_recieving_bus = try .init(a),
         .read_sending_bus = try .init(a),
         .write_recieving_bus = try .init(a),
+        .allocator = a,
     };
     return s;
+}
+
+pub fn destroy(self: *Self) void {
+    self.allocator.destroy(self.read_recieving_bus);
+    self.allocator.destroy(self.read_sending_bus);
+    self.allocator.destroy(self.write_recieving_bus);
 }
 
 pub fn recieve_writes(self: *Self) void {
@@ -71,9 +81,21 @@ pub fn complete_reads(self: *Self) void {
         if (recv.len != 0) {
             self.read_sending_bus.put(.{
                 .start = recv.address,
+                .pc = recv.pc,
+                .thread_id = recv.thread_id,
                 .len = recv.len,
                 .data = self.contigous[recv.address..recv.len],
             });
+        }
+    }
+}
+pub fn debug(self: *Self) void {
+    var stdout = std.io.getStdOut().writer();
+    for (self.contigous, 0..) |value, idx| {
+        if (value != 0) {
+            stdout.print("0x{x:0>8} ({0}): {1}\n", .{ idx, value }) catch {
+                @panic("failed debug");
+            };
         }
     }
 }

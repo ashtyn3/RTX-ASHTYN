@@ -143,6 +143,14 @@ fn getSrcVal(self: *Self, op: Operand) ?[]const u8 {
         const r_data = self.register_file.get(self.thread_ctx.reg_min + op.value);
         return r_data;
     }
+    if (op.kind == .mem) {
+        const r_data = self.register_file.get(self.thread_ctx.reg_min + op.value);
+        const r_data2 = self.register_file.get(self.thread_ctx.reg_min + op.value + 1);
+        var data = [_]u8{0} ** 8;
+        @memcpy(data[0..1].ptr, r_data[0..1]);
+        @memcpy(data[2..4].ptr, r_data2[2..4]);
+        return &data;
+    }
     return null;
 }
 
@@ -179,6 +187,16 @@ fn mem_ops(self: *Self, ins: Instruction) !void {
                 else => {
                     unreachable;
                 },
+            }
+        },
+        .st => {
+            const src0 = self.getSrcVal(ins.src0);
+            assert(ins.src1.kind == .none);
+            const dst = self.getSrcVal(ins.dst);
+            const addr = ALU.wrap(.u64, @constCast(dst.?)).value.u64;
+            // std.log.debug("{any} {any}", .{ addr, src0 });
+            if (src0) |data| {
+                self.SM_ctx.store_memory(self.cluster_ctx.id, self.thread_ctx.id, self.cluster_ctx.pc.get(), addr, @constCast(data));
             }
         },
         else => {

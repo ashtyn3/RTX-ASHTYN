@@ -7,6 +7,7 @@ const SM = @import("SM.zig").SM;
 const RegFile = @import("registers.zig").RegisterFile;
 const Core = @import("core.zig").Core;
 const constants = @import("constants.zig");
+const serve = @import("viz/serve.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -40,9 +41,20 @@ pub fn main() !void {
         .mod = .{},
         .flags = .{},
     };
+    const in4 = Core.Instruction{
+        .format = .MEM,
+        .op = .st,
+        .dtype = .u32,
+        .dst = .{ .kind = .mem, .value = 2 },
+        .src0 = .{ .kind = .reg, .value = 1 },
+        .src1 = .{ .kind = .none, .value = 0 },
+        .literal = 0,
+        .mod = .{},
+        .flags = .{},
+    };
     const in3 = Core.Instruction{
         .format = .ALU,
-        .op = .add,
+        .op = .div,
         .dtype = .u32,
         .dst = .{ .kind = .reg, .value = 3 },
         .src0 = .{ .kind = .reg, .value = 1 },
@@ -54,6 +66,7 @@ pub fn main() !void {
     try prog.appendSlice(in.toBytes());
     try prog.appendSlice(in2.toBytes());
     try prog.appendSlice(in3.toBytes());
+    try prog.appendSlice(in4.toBytes());
     // try prog.appendSlice(&[_]u8{ 24, 4, 192, 0, 128, 1, 128, 1, 0, 180, 0, 0, 0, 0, 0, 0 });
     // try prog.appendNTimes(0, 13);
 
@@ -64,7 +77,7 @@ pub fn main() !void {
     dev.clock.tick();
 
     for (0..constants.constants.sm_count) |i| {
-        dev.launch(i);
+        try dev.launch(i);
         try dev.SMs.items[i].launch_threads();
     }
 
@@ -78,6 +91,8 @@ pub fn main() !void {
         }
     }
     dev.debug();
+    dev.global_memory.debug();
+    // serve.serve();
     // dev.SMs.items[0].register_file.debug();
     // std.log.debug("{any}", .{dev.SMs.items[0].register_file});
     const sl = dev.SMs.items[0].register_file.get(3);

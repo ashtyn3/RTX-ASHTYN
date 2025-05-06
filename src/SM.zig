@@ -1,11 +1,12 @@
 const std = @import("std");
+
 const Cluster = @import("cluster.zig").Cluster;
+const constants = @import("constants.zig").constants;
+const Core = @import("core.zig").Core;
+const Device = @import("device.zig").Device;
 const GlobalMemory = @import("memory.zig").GlobalMemory;
 const RegFile = @import("registers.zig").RegisterFile;
-const Device = @import("device.zig").Device;
 const Thread = @import("thread.zig").Thread;
-const Core = @import("core.zig").Core;
-const constants = @import("constants.zig").constants;
 
 const SMState = enum {
     Active,
@@ -36,6 +37,23 @@ pub fn launch_threads(self: *Self) !void {
             self.device.thread_count += 1;
         }
     }
+}
+
+pub fn destroy(self: *Self) void {
+    self.device.allocator.destroy(self.register_file);
+    for (self.clusters) |c| {
+        for (c.threads.items) |t| {
+            self.device.allocator.destroy(t.done);
+            self.device.allocator.destroy(t);
+        }
+        c.threads.deinit();
+        self.device.allocator.destroy(c.done);
+        self.device.allocator.destroy(c.pc);
+        self.device.allocator.destroy(c.signal);
+        self.device.allocator.destroy(c);
+    }
+    self.device.allocator.free(self.clusters);
+    self.device.allocator.destroy(self);
 }
 
 pub fn tasker(self: *Self) !void {
@@ -87,4 +105,13 @@ pub fn scheduler(self: *Self) !void {
     }
 }
 
+pub fn store_memory(self: *Self, ctx_cluster_id: u64, ctx_thread_id: u64, ctx_pc: u64, addr: u64, data: []u8) void {
+    self.global_memory_controller.send_write(.{
+        .thread_id = ctx_thread_id,
+        .cluster_id = ctx_cluster_id,
+        .pc = ctx_pc,
+        .address = addr,
+        .data = data,
+    });
+}
 pub const SM = Self;
