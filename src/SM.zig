@@ -52,6 +52,7 @@ pub fn destroy(self: *Self) void {
     for (self.clusters) |c| {
         for (c.threads.items) |t| {
             self.device.allocator.destroy(t.done);
+            t.core.destroy();
             self.device.allocator.destroy(t);
         }
         c.threads.deinit();

@@ -165,6 +165,9 @@ fn putRegisterDstVal(self: *Self, ins: Instruction, sl: []const u8) void {
         self.register_file.set(self.thread_ctx.reg_min + ins.dst.value, sl);
     }
 }
+pub fn destroy(self: *Self) void {
+    self.SM_ctx.device.allocator.destroy(self.last_pc);
+}
 
 fn mem_ops(self: *Self, ins: Instruction) !void {
     switch (ins.op) {
