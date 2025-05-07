@@ -8,12 +8,14 @@ const assert = std.debug.assert;
 const log = std.log.scoped(.Core);
 const utils = @import("utils.zig");
 const ALU = @import("ALU.zig");
+const Bus = @import("bus.zig").Bus;
 
 cluster_ctx: *Cluster,
 thread_ctx: *Thread,
 SM_ctx: *SM,
 register_file: *RegFile,
 kernel: *Kernel,
+last_pc: *Bus(i64, 1),
 
 const Self = @This();
 
@@ -237,12 +239,17 @@ pub fn exec(self: *Self) !void {
     if (self.thread_ctx.done.get() == 1) {
         return;
     }
+    if (self.last_pc.get() == pc) {
+        self.thread_ctx.done.put(1);
+        return;
+    }
     if (raw_instr.len == 0) {
         self.thread_ctx.done.put(1);
         return;
     }
     const v = std.mem.bytesToValue(Instruction, raw_instr);
-    // std.log.debug("id={any} SM={any} pc={any}", .{ self.thread_ctx.id, self.SM_ctx.id, self.cluster_ctx.pc.get() });
+    // std.log.debug("{any}", .{self.thread_ctx.id});
+    std.log.debug("id={any} SM={any} pc={any}", .{ self.thread_ctx.id, self.SM_ctx.id, self.cluster_ctx.pc.get() });
     // std.log.debug("id={any} min_reg={any} max_reg={any}", .{ self.thread_ctx.id, self.thread_ctx.reg_min, self.thread_ctx.reg_max });
     // std.log.debug("id={any} SM={any} got={} raw={any}", .{ self.thread_ctx.id, self.SM_ctx.id, v, raw_instr });
     switch (v.format) {
@@ -257,5 +264,6 @@ pub fn exec(self: *Self) !void {
         },
     }
     self.thread_ctx.done.put(1);
+    self.last_pc.put(@intCast(pc));
 }
 pub const Core = Self;

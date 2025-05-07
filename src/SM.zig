@@ -27,7 +27,15 @@ pub fn launch_threads(self: *Self) !void {
         for (0..self.device.thread_size.get()) |i| {
             var t = try self.device.allocator.create(Thread);
             t.cluster = c;
-            t.core = Core{ .cluster_ctx = c, .kernel = self.device.kernel, .register_file = self.register_file, .thread_ctx = t, .SM_ctx = self };
+            t.core = Core{
+                .cluster_ctx = c,
+                .kernel = self.device.kernel,
+                .register_file = self.register_file,
+                .thread_ctx = t,
+                .SM_ctx = self,
+                .last_pc = try .init(self.device.allocator),
+            };
+            t.core.last_pc.put(-1);
             t.id = self.device.thread_count;
             t.reg_min = i * 10;
             t.reg_max = (i * 10) + 9;
@@ -62,6 +70,7 @@ pub fn tasker(self: *Self) !void {
             for (self.clusters) |cluster| {
                 for (cluster.threads.items) |t| {
                     const tt = try std.Thread.spawn(.{}, Thread.task, .{t});
+                    // tt.join();
                     tt.detach();
                 }
             }

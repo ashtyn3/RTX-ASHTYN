@@ -52,20 +52,20 @@ pub fn main() !void {
         .mod = .{},
         .flags = .{},
     };
-    const in3 = Core.Instruction{
-        .format = .ALU,
-        .op = .div,
-        .dtype = .u32,
-        .dst = .{ .kind = .reg, .value = 3 },
-        .src0 = .{ .kind = .reg, .value = 1 },
-        .src1 = .{ .kind = .reg, .value = 2 },
-        .literal = 0,
-        .mod = .{},
-        .flags = .{},
-    };
+    // const in3 = Core.Instruction{
+    //     .format = .ALU,
+    //     .op = .div,
+    //     .dtype = .u32,
+    //     .dst = .{ .kind = .reg, .value = 3 },
+    //     .src0 = .{ .kind = .reg, .value = 1 },
+    //     .src1 = .{ .kind = .reg, .value = 2 },
+    //     .literal = 0,
+    //     .mod = .{},
+    //     .flags = .{},
+    // };
     try prog.appendSlice(in.toBytes());
     try prog.appendSlice(in2.toBytes());
-    try prog.appendSlice(in3.toBytes());
+    // try prog.appendSlice(in3.toBytes());
     try prog.appendSlice(in4.toBytes());
     // try prog.appendSlice(&[_]u8{ 24, 4, 192, 0, 128, 1, 128, 1, 0, 180, 0, 0, 0, 0, 0, 0 });
     // try prog.appendNTimes(0, 13);
