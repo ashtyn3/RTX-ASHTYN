@@ -57,5 +57,4 @@ test "SMEmptySchedule" {
             dev.signal.put(0);
         }
     }
-    dev.debug();
 }
