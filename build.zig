@@ -91,6 +91,7 @@ pub fn build(b: *std.Build) void {
 
     const unit_tests = b.addTest(.{
         .root_source_file = b.path("src/tests.zig"),
+        .test_runner = .{ .path = b.path("src/tests.zig"), .mode = .simple },
         // .root_module = exe_mod,
     });
     unit_tests.root_module.addOptions("build_options", options);
