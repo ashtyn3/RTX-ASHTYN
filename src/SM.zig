@@ -148,7 +148,6 @@ pub fn store_memory(self: *Self, ctx_cluster_id: u64, ctx_thread_id: u64, ctx_pc
             },
         },
     });
-    // self.global_memory_controller.send_write();
 }
 pub fn read_memory(self: *Self, ctx_cluster_id: u64, ctx_thread_id: u64, ctx_pc: u64, addr: u64, len: u8) void {
     self.mem.read(.{

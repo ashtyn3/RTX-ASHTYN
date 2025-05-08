@@ -26,6 +26,22 @@ pub const Cache = struct {
         s.global = g;
         return s;
     }
+    pub fn has(c: *Cache, address: u64) bool {
+        const offset_bits = 7; // log2(128)
+        const index_bits = 8; // log2(256)
+        // const offset_mask = (1 << offset_bits) - 1;
+        const index_mask = (1 << index_bits) - 1;
+
+        // const offset = address & offset_mask;
+        const index = (address >> offset_bits) & index_mask;
+        const tag = address >> (offset_bits + index_bits);
+
+        const line = c.lines.get(index);
+        if (line.tag == tag) {
+            return true;
+        }
+        return false;
+    }
     pub fn access(c: *Cache, ctx_c: u64, ctx_t: u64, pc: u64, address: u64, n: u8) struct { u1, []u8 } {
         const offset_bits = 7; // log2(128)
         const index_bits = 8; // log2(256)
@@ -105,9 +121,13 @@ pub fn write(self: *Self, r: Request) void {
         @panic("broken write");
     };
 }
-pub fn read(self: *Self, r: Request) void {
+pub fn read(self: *Self, r: Request) ?[]u8 {
+    if (self.L1.has(r.data.read.address)) {
+        return self.L1.access(r.data.read.cluster_id, r.data.read.thread_id, r.data.read.pc, r.data.read.address, r.data.read.len).@"1";
+    }
     self.requests.writeItem(r) catch {
         @panic("broken write");
     };
+    return null;
 }
 pub const MemoryOptimizer = Self;
