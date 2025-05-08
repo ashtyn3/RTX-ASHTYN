@@ -2,6 +2,7 @@ const std = @import("std");
 const constants = @import("constants.zig").constants;
 const assert = std.debug.assert;
 prog: []const u8,
+id: u8,
 
 const Self = @This();
 

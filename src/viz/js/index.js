@@ -1,4 +1,6 @@
-var workers = {
+import { data } from "./profile.js";
+
+const workers = {
   identifier: {
     consumers: 2,
     count: 20,
@@ -36,17 +38,17 @@ var workers = {
 };
 
 // Set up zoom support
-var svg = d3.select("svg"),
-  inner = svg.select("g"),
-  zoom = d3.zoom().on("zoom", function () {
-    inner.attr("transform", d3.event.transform);
-  });
+const svg = d3.select("svg");
+const inner = svg.select("g");
+const zoom = d3.zoom().on("zoom", () => {
+  inner.attr("transform", d3.event.transform);
+});
 svg.call(zoom);
 
-var render = new dagreD3.render();
+const render = new dagreD3.render();
 
 // Left-to-right layout
-var g = new dagreD3.graphlib.Graph();
+const g = new dagreD3.graphlib.Graph();
 g.setGraph({
   nodesep: 40,
   ranksep: 20,
@@ -56,28 +58,32 @@ g.setGraph({
 });
 
 function draw(isUpdate) {
-  for (var id in workers) {
-    var worker = workers[id];
-    var className = worker.consumers ? "running" : "stopped";
+  for (let i = 0; i < data.nodes.length; i++) {
     // if (worker.count > 10000) {
     //   className += " warn";
     // }
-    g.setNode(id, {
+    g.setNode(i, {
       labelType: "html",
-      label: `<span class="label">text</span>`,
+      label: `
+<div>
+<span class="label">${data.nodes[i].instruction.op}</span>
+<span class="label">${data.nodes[i].instruction.dtype}</span>
+</div>
+`,
       rx: 5,
       ry: 5,
       padding: 10,
-      class: className,
     });
 
-    if (worker.inputQueue) {
-      g.setEdge(worker.inputQueue, id, {
-        width: 40,
-        arrowhead: "undirected",
-        curve: d3.curveBasis,
-      });
-    }
+    // if (worker.inputQueue) {
+    // }
+  }
+  for (const e of data.edges) {
+    g.setEdge(e[0], e[1], {
+      width: 40,
+      arrowhead: "undirected",
+      curve: d3.curveBasis,
+    });
   }
 
   inner.call(render, g);

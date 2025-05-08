@@ -1,15 +1,17 @@
 const std = @import("std");
+const assert = std.debug.assert;
+
+const ALU = @import("ALU.zig");
+const Bus = @import("bus.zig").Bus;
 const Cluster = @import("cluster.zig").Cluster;
-const Thread = @import("thread.zig").Thread;
+const constants = @import("constants.zig").constants;
 const Kernel = @import("kernel.zig").Kernel;
 const RegFile = @import("registers.zig").RegisterFile;
 const SM = @import("SM.zig").SM;
-const assert = std.debug.assert;
-const log = std.log.scoped(.Core);
+const Thread = @import("thread.zig").Thread;
 const utils = @import("utils.zig");
-const ALU = @import("ALU.zig");
-const Bus = @import("bus.zig").Bus;
 
+const log = std.log.scoped(.Core);
 cluster_ctx: *Cluster,
 thread_ctx: *Thread,
 SM_ctx: *SM,
@@ -268,5 +270,15 @@ pub fn exec(self: *Self) !void {
     }
     self.thread_ctx.done.put(1);
     self.last_pc.put(@intCast(pc));
+    if (constants.viz == 1) {
+        try self.SM_ctx.tracker.?.add_node(0, .{
+            .SM = self.SM_ctx.id,
+            .cluster = self.cluster_ctx.id,
+            .thread = self.cluster_ctx.id,
+            .instruction = v,
+            .last_pc = self.last_pc.get(),
+            .pc = pc,
+        });
+    }
 }
 pub const Core = Self;

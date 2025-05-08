@@ -5,6 +5,7 @@ const GlobalMemory = @import("memory.zig").GlobalMemory;
 const Cluster = @import("cluster.zig").Cluster;
 const Core = @import("core.zig").Core;
 const Bus = @import("bus.zig").Bus;
+const KernelTracker = @import("viz/ins.zig");
 
 registers: *RegFile,
 reg_max: u64,
@@ -13,6 +14,7 @@ cluster: *Cluster,
 core: Core,
 id: u64,
 done: *Bus(u1, 1),
+tracker: ?*KernelTracker,
 
 const Self = @This();
 

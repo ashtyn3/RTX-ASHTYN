@@ -7,6 +7,7 @@ const GlobalMemory = @import("memory.zig").GlobalMemory;
 const RegFile = @import("registers.zig").RegisterFile;
 const Thread = @import("thread.zig").Thread;
 const Kernel = @import("kernel.zig").Kernel;
+const KernelTracker = @import("viz/ins.zig").KernelTracker;
 const constants = @import("constants.zig").constants;
 
 clock: *Clock,
@@ -18,6 +19,7 @@ returned: *Bus(u8, 1),
 kernel: *Kernel,
 thread_count: u64,
 global_memory: *GlobalMemory,
+kernel_tracker: ?KernelTracker,
 
 const Self = @This();
 
@@ -27,7 +29,21 @@ pub fn init(a: std.mem.Allocator, clock: *Clock) !*Self {
     const gmem = try GlobalMemory.init(a, clock);
 
     const sms = std.ArrayList(*SM).init(a);
-    s.* = .{ .clock = clock, .signal = try .init(a), .thread_size = try .init(a), .allocator = a, .SMs = sms, .kernel = k, .thread_count = 0, .returned = try .init(a), .global_memory = gmem };
+    s.* = .{
+        .clock = clock,
+        .signal = try .init(a),
+        .thread_size = try .init(a),
+        .allocator = a,
+        .SMs = sms,
+        .kernel = k,
+        .thread_count = 0,
+        .returned = try .init(a),
+        .global_memory = gmem,
+        .kernel_tracker = null,
+    };
+    if (constants.viz == 1) {
+        s.kernel_tracker = try KernelTracker.init(a);
+    }
     return s;
 }
 
@@ -68,7 +84,11 @@ pub fn launch(self: *Self, id: u64) !void {
         .global_memory_controller = self.global_memory,
         .register_file = regfile,
         .state = .Ready,
+        .tracker = null,
     };
+    if (constants.viz == 1) {
+        sm.tracker = self.kernel_tracker;
+    }
 
     self.SMs.append(sm) catch {
         @panic("failed new SM");
