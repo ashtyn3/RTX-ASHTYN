@@ -43,7 +43,7 @@ pub fn main() !void {
     };
     const in3 = Core.Instruction{
         .format = .ALU,
-        .op = .div,
+        .op = .add,
         .dtype = .u32,
         .dst = .{ .kind = .reg, .value = 3 },
         .src0 = .{ .kind = .reg, .value = 1 },
@@ -73,7 +73,7 @@ pub fn main() !void {
     dev.kernel.prog = prog.items;
 
     dev.clock.tick();
-    dev.setThreads(1);
+    dev.setThreads(32);
     dev.clock.tick();
 
     for (0..constants.constants.sm_count) |i| {
@@ -91,10 +91,10 @@ pub fn main() !void {
         }
     }
     dev.debug();
-    const d = try dev.kernel_tracker.?.to_json();
-    std.log.debug("{!s}", .{d});
-    // dev.global_memory.debug();
-    serve.serve();
+    // const d = try dev.kernel_tracker.?.to_json();
+    // std.log.debug("{!s}", .{d});
+    dev.global_memory.debug();
+    // serve.serve();
     // dev.SMs.items[0].register_file.debug();
     // std.log.debug("{any}", .{dev.SMs.items[0].register_file});
     // const sl = dev.SMs.items[0].register_file.get(3);

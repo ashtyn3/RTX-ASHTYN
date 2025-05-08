@@ -8,6 +8,7 @@ const RegFile = @import("registers.zig").RegisterFile;
 const Thread = @import("thread.zig").Thread;
 const Kernel = @import("kernel.zig").Kernel;
 const KernelTracker = @import("viz/ins.zig").KernelTracker;
+const MemOptim = @import("mem_optim.zig").MemoryOptimizer;
 const constants = @import("constants.zig").constants;
 
 clock: *Clock,
@@ -72,6 +73,9 @@ pub fn launch(self: *Self, id: u64) !void {
             .signal = Bus(u1, 1).init(self.allocator) catch {
                 @panic("bad cluster signal state");
             },
+            .wait = Bus(struct { u64, u64 }, 32).init(self.allocator) catch {
+                @panic("bad wait signal state");
+            },
         };
         cls.append(c) catch {
             @panic("failed cls");
@@ -85,7 +89,9 @@ pub fn launch(self: *Self, id: u64) !void {
         .register_file = regfile,
         .state = .Ready,
         .tracker = null,
+        .mem = undefined,
     };
+    sm.mem = try MemOptim.init(self.allocator, self.global_memory, sm);
     if (constants.viz == 1) {
         sm.tracker = self.kernel_tracker;
     }

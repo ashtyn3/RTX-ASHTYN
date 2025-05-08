@@ -8,6 +8,7 @@ const GlobalMemory = @import("memory.zig").GlobalMemory;
 const RegFile = @import("registers.zig").RegisterFile;
 const Thread = @import("thread.zig").Thread;
 const KernelTracker = @import("viz/ins.zig").KernelTracker;
+const MemOptim = @import("mem_optim.zig").MemoryOptimizer;
 
 const SMState = enum {
     Active,
@@ -23,6 +24,7 @@ clusters: []*Cluster,
 global_memory_controller: *GlobalMemory,
 device: *Device,
 tracker: ?KernelTracker,
+mem: *MemOptim,
 
 pub fn launch_threads(self: *Self) !void {
     for (self.clusters) |c| {
@@ -96,13 +98,19 @@ pub fn scheduler(self: *Self) !void {
         if (self.device.clock.cycle()) {
             // const tt = try std.Thread.spawn(.{}, Self.tasker, .{self});
             // tt.detach();
+            const pr = try std.Thread.spawn(.{}, MemOptim.proc, .{self.mem});
             const tw = try std.Thread.spawn(.{}, GlobalMemory.recieve_writes, .{self.global_memory_controller});
             const tr = try std.Thread.spawn(.{}, GlobalMemory.complete_reads, .{self.global_memory_controller});
+            pr.join();
             tw.join();
             tr.join();
+
             var done: u8 = 0;
             for (self.clusters) |cluster| {
                 cluster.sync();
+                if (cluster.wait.active != 0) {
+                    continue;
+                }
                 const pc = cluster.pc.get();
                 if (cluster.threads.items.len == cluster.done.get()) {
                     if (cluster.threads.items[0].core.kernel.at(pc).len != 0) {
@@ -128,12 +136,18 @@ pub fn scheduler(self: *Self) !void {
 }
 
 pub fn store_memory(self: *Self, ctx_cluster_id: u64, ctx_thread_id: u64, ctx_pc: u64, addr: u64, data: []u8) void {
-    self.global_memory_controller.send_write(.{
-        .thread_id = ctx_thread_id,
-        .cluster_id = ctx_cluster_id,
-        .pc = ctx_pc,
-        .address = addr,
-        .data = data,
+    self.mem.write(.{
+        .type = .write,
+        .data = .{
+            .write = .{
+                .thread_id = ctx_thread_id,
+                .cluster_id = ctx_cluster_id,
+                .pc = ctx_pc,
+                .address = addr,
+                .data = data,
+            },
+        },
     });
+    // self.global_memory_controller.send_write();
 }
 pub const SM = Self;

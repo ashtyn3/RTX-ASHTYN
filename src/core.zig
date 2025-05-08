@@ -204,6 +204,7 @@ fn mem_ops(self: *Self, ins: Instruction) !void {
             // std.log.debug("{any} {any}", .{ addr, src0 });
             if (src0) |data| {
                 self.SM_ctx.store_memory(self.cluster_ctx.id, self.thread_ctx.id, self.cluster_ctx.pc.get(), addr, @constCast(data));
+                self.cluster_ctx.wait.put(.{ self.cluster_ctx.id, addr });
             }
         },
         else => {
