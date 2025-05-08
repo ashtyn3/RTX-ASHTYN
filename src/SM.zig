@@ -7,6 +7,7 @@ const Device = @import("device.zig").Device;
 const GlobalMemory = @import("memory.zig").GlobalMemory;
 const RegFile = @import("registers.zig").RegisterFile;
 const Thread = @import("thread.zig").Thread;
+const KernelTracker = @import("viz/ins.zig").KernelTracker;
 
 const SMState = enum {
     Active,
@@ -21,6 +22,7 @@ state: SMState,
 clusters: []*Cluster,
 global_memory_controller: *GlobalMemory,
 device: *Device,
+tracker: ?KernelTracker,
 
 pub fn launch_threads(self: *Self) !void {
     for (self.clusters) |c| {
@@ -67,21 +69,30 @@ pub fn destroy(self: *Self) void {
 
 pub fn tasker(self: *Self) !void {
     if (self.device.signal.get() == 1) {
+        var pool: std.Thread.Pool = undefined;
+        try pool.init(std.Thread.Pool.Options{
+            .allocator = self.device.allocator,
+            .n_jobs = self.clusters.len * self.clusters[0].threads.items.len, // Number of worker threads
+        });
+        defer pool.deinit();
+        var wg = std.Thread.WaitGroup{};
+
         if (self.device.clock.cycle()) {
             for (self.clusters) |cluster| {
                 for (cluster.threads.items) |t| {
-                    const tt = try std.Thread.spawn(.{}, Thread.task, .{t});
-                    // tt.join();
-                    tt.detach();
+                    if (t.done.get() != 1) {
+                        pool.spawnWg(&wg, Thread.task, .{t});
+                        // tt.join();
+                    }
                 }
             }
         }
+        wg.wait();
     }
 }
 pub fn scheduler(self: *Self) !void {
     while (self.device.signal.get() == 1) {
         if (self.device.clock.cycle()) {
-            try self.tasker();
             // const tt = try std.Thread.spawn(.{}, Self.tasker, .{self});
             // tt.detach();
             const tw = try std.Thread.spawn(.{}, GlobalMemory.recieve_writes, .{self.global_memory_controller});
@@ -101,7 +112,6 @@ pub fn scheduler(self: *Self) !void {
                             }
                         }
                     } else {
-                        // cluster.signal.put(1);
                         done += 1;
                     }
                 }
@@ -110,6 +120,7 @@ pub fn scheduler(self: *Self) !void {
                 self.device.returned.put(self.device.returned.get() + 1);
                 break;
             }
+            try self.tasker();
         }
         self.device.clock.tick();
     }
