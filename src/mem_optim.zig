@@ -38,7 +38,7 @@ pub const Cache = struct {
 
         const line = c.lines.get(index);
         if (line.tag == tag) {
-            return .{ 0, line.data[offset..(offset + n)] };
+            return .{ 0, @constCast(line.data[offset..(offset + n)]) };
         }
         _ = c.global.read(memory.ReadRecieve{
             .address = address,
@@ -74,7 +74,7 @@ pub fn proc(self: *Self) void {
         const item = self.requests.readItem();
         if (item) |i| {
             if (i.type == .read) {
-                _ = self.global.read(i.data.read);
+                _ = self.L1.access(i.data.read.cluster_id, i.data.read.thread_id, i.data.read.pc, i.data.read.address, i.data.read.len);
             } else {
                 _ = self.global.send_write(i.data.write);
             }
@@ -101,6 +101,11 @@ pub fn proc(self: *Self) void {
 }
 
 pub fn write(self: *Self, r: Request) void {
+    self.requests.writeItem(r) catch {
+        @panic("broken write");
+    };
+}
+pub fn read(self: *Self, r: Request) void {
     self.requests.writeItem(r) catch {
         @panic("broken write");
     };
