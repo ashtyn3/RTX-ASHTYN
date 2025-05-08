@@ -90,6 +90,7 @@ pub fn tasker(self: *Self) !void {
         wg.wait();
     }
 }
+
 pub fn scheduler(self: *Self) !void {
     while (self.device.signal.get() == 1) {
         if (self.device.clock.cycle()) {
