@@ -98,12 +98,13 @@ pub fn scheduler(self: *Self) !void {
         if (self.device.clock.cycle()) {
             // const tt = try std.Thread.spawn(.{}, Self.tasker, .{self});
             // tt.detach();
+            // const tw = try std.Thread.spawn(.{}, GlobalMemory.recieve_writes, .{self.global_memory_controller});
+            // const tr = try std.Thread.spawn(.{}, GlobalMemory.complete_reads, .{self.global_memory_controller});
+            // tw.join();
+            // tr.join();
+            try self.tasker();
             const pr = try std.Thread.spawn(.{}, MemOptim.proc, .{self.mem});
-            const tw = try std.Thread.spawn(.{}, GlobalMemory.recieve_writes, .{self.global_memory_controller});
-            const tr = try std.Thread.spawn(.{}, GlobalMemory.complete_reads, .{self.global_memory_controller});
             pr.join();
-            tw.join();
-            tr.join();
 
             var done: u8 = 0;
             for (self.clusters) |cluster| {
@@ -129,7 +130,6 @@ pub fn scheduler(self: *Self) !void {
                 self.device.returned.put(self.device.returned.get() + 1);
                 break;
             }
-            try self.tasker();
         }
         self.device.clock.tick();
     }

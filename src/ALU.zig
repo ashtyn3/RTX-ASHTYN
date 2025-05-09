@@ -19,6 +19,13 @@ pub const Value = union(core.DataType) {
     // custom = 0xF,
 };
 
+pub fn sizeOf(d: core.DataType) u8 {
+    switch (d) {
+        inline else => |x| {
+            return @sizeOf(@FieldType(Value, @tagName(x)));
+        },
+    }
+}
 pub const WrappedValue = struct {
     dtype: core.DataType,
     value: Value,

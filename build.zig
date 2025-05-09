@@ -43,10 +43,10 @@ pub fn build(b: *std.Build) void {
     // };
     const options = b.addOptions();
     options.addOption(u64, "SHARED_MEM_LEN", int(env_map.get("SHARED_MEM_LEN"), "1500"));
-    options.addOption(u64, "BUS_MAX", int(env_map.get("BUS_MAX"), "32"));
+    options.addOption(u64, "BUS_MAX", int(env_map.get("BUS_MAX"), "33"));
     options.addOption(u64, "MAX_REGISTER_COUNT", int(env_map.get("MAX_REGISTER_COUNT"), "500"));
     options.addOption(u64, "MAX_PROGRAM_LEN", int(env_map.get("MAX_PROGRAM_LEN"), "1280"));
-    options.addOption(u64, "SM_SIZE", int(env_map.get("SM_SIZE"), "64"));
+    options.addOption(u64, "SM_SIZE", int(env_map.get("SM_SIZE"), "10"));
     options.addOption(u64, "SM_COUNT", int(env_map.get("SM_COUNT"), "2"));
     options.addOption(u64, "SLOW_CLOCK", int(env_map.get("SLOW_CLOCK"), "0"));
     options.addOption(u64, "VIZ", int(env_map.get("VIZ"), "0"));

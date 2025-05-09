@@ -14,7 +14,7 @@ pub const Request = struct {
 pub const CacheLine = struct {
     tag: u49,
     data: [128]u8,
-    valid: u1,
+    // valid: u1,
 };
 pub const Cache = struct {
     lines: std.BoundedArray(CacheLine, 256),
@@ -36,13 +36,34 @@ pub const Cache = struct {
         const index = (address >> offset_bits) & index_mask;
         const tag = address >> (offset_bits + index_bits);
 
+        if (index >= c.lines.len) {
+            return false;
+        }
         const line = c.lines.get(index);
         if (line.tag == tag) {
             return true;
         }
         return false;
     }
-    pub fn access(c: *Cache, ctx_c: u64, ctx_t: u64, pc: u64, address: u64, n: u8) struct { u1, []u8 } {
+    pub fn write(c: *Cache, address: u64, data: []u8) void {
+        const offset_bits = 7; // log2(128)
+        const index_bits = 8; // log2(256)
+        const offset_mask = (1 << offset_bits) - 1;
+        // const index_mask = (1 << index_bits) - 1;
+
+        const offset = address & offset_mask;
+        // const index = (address >> offset_bits) & index_mask;
+        const tag = address >> (offset_bits + index_bits);
+        var buf = [_]u8{0} ** 128;
+        @memcpy(buf[offset..(offset + data.len)].ptr, data[0..data.len]);
+        // std.log.debug("{any}", .{data});
+        c.lines.append(.{ .tag = @intCast(tag), .data = buf }) catch {
+            @panic("failed to write cache line");
+        };
+    }
+
+    pub fn access(c: *Cache, ctx_c: u64, ctx_t: u64, pc: u64, address: u64, n: u8) []u8 {
+        // std.log.debug("here", .{});
         const offset_bits = 7; // log2(128)
         const index_bits = 8; // log2(256)
         const offset_mask = (1 << offset_bits) - 1;
@@ -52,20 +73,28 @@ pub const Cache = struct {
         const index = (address >> offset_bits) & index_mask;
         const tag = address >> (offset_bits + index_bits);
 
-        const line = c.lines.get(index);
-        if (line.tag == tag) {
-            return .{ 0, @constCast(line.data[offset..(offset + n)]) };
+        // if (index >= c.lines.len) {
+        // return .{ 1, &[_]u8{} };
+        // }
+        if (index < c.lines.len) {
+            const line = c.lines.get(index);
+            if (line.tag == tag) {
+                return @constCast(line.data[offset..(offset + n)]);
+            }
+            return &[_]u8{};
         }
-        _ = c.global.read(memory.ReadRecieve{
+        const r = c.global.real_read(memory.ReadRecieve{
             .address = address,
             .len = n,
             .cluster_id = ctx_c,
             .thread_id = ctx_t,
             .pc = pc,
         });
-        // const data = c.global.read_sending_bus.Q[at];
-        // c.lines.set(address, data);
-        return .{ 1, &[_]u8{} };
+        c.write(r.start, r.data);
+
+        const line = c.lines.get(index);
+
+        return @constCast(line.data[offset..(offset + n)]);
     }
 };
 const Self = @This();
@@ -86,32 +115,16 @@ pub fn init(a: std.mem.Allocator, g: *memory.GlobalMemory, sm: *SM) !*Self {
 }
 
 pub fn proc(self: *Self) void {
-    while (self.requests.count != 0) {
-        const item = self.requests.readItem();
-        if (item) |i| {
-            if (i.type == .read) {
-                _ = self.L1.access(i.data.read.cluster_id, i.data.read.thread_id, i.data.read.pc, i.data.read.address, i.data.read.len);
-            } else {
-                _ = self.global.send_write(i.data.write);
+    for (0..self.requests.count) |_| {
+        const req = self.requests.readItem();
+        if (req) |r| {
+            if (r.type == .read) {
+                _ = self.L1.access(r.data.read.cluster_id, r.data.read.thread_id, r.data.read.pc, r.data.read.address, r.data.read.len);
+                self.SM_ctx.clusters[r.data.read.cluster_id].wait.active = 0;
             }
-        }
-    }
-
-    var req_map = std.AutoHashMap(u64, struct { u64, u64 }).init(self.SM_ctx.device.allocator);
-    for (self.SM_ctx.clusters) |c| {
-        for (0..c.wait.active + 1) |_| {
-            const item = c.wait.get();
-            const thread = item.@"0";
-            const addr = item.@"1";
-            req_map.put(thread, .{ c.id, addr }) catch {
-                @panic("broken request pipe");
-            };
-        }
-    }
-
-    for (0..self.global.read_sending_bus.active + 1) |i| {
-        if (req_map.get(self.global.read_sending_bus.Q[i].thread_id)) |v| {
-            _ = self.SM_ctx.clusters[v.@"0"].wait.get();
+            if (r.type == .write) {
+                self.global.send_write(r.data.write);
+            }
         }
     }
 }
@@ -121,10 +134,14 @@ pub fn write(self: *Self, r: Request) void {
         @panic("broken write");
     };
 }
-pub fn read(self: *Self, r: Request) ?[]u8 {
+pub fn read(self: *Self, r: Request, buf: *[]u8) ?[]u8 {
     if (self.L1.has(r.data.read.address)) {
-        return self.L1.access(r.data.read.cluster_id, r.data.read.thread_id, r.data.read.pc, r.data.read.address, r.data.read.len).@"1";
+        const data = self.L1.access(r.data.read.cluster_id, r.data.read.thread_id, r.data.read.pc, r.data.read.address, r.data.read.len);
+
+        @memcpy(buf.ptr, data);
+        return @constCast(data);
     }
+
     self.requests.writeItem(r) catch {
         @panic("broken write");
     };

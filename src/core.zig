@@ -9,6 +9,7 @@ const Kernel = @import("kernel.zig").Kernel;
 const RegFile = @import("registers.zig").RegisterFile;
 const SM = @import("SM.zig").SM;
 const Thread = @import("thread.zig").Thread;
+const MemOptim = @import("mem_optim.zig").MemoryOptimizer;
 const utils = @import("utils.zig");
 
 const log = std.log.scoped(.Core);
@@ -145,6 +146,8 @@ fn getSrcVal(self: *Self, op: Operand) ?[]const u8 {
     }
     if (op.kind == .reg) {
         const r_data = self.register_file.get(self.thread_ctx.reg_min + op.value);
+        // var data = [_]u8{0} ** 4;
+        // @memcpy(data[0..4].ptr, r_data[0..4]);
         return r_data;
     }
     if (op.kind == .mem) {
@@ -201,11 +204,38 @@ fn mem_ops(self: *Self, ins: Instruction) !void {
             assert(ins.src1.kind == .none);
             const dst = self.getSrcVal(ins.dst);
             const addr = ALU.wrap(.u64, @constCast(dst.?)).value.u64;
-            // std.log.debug("{any} {any}", .{ addr, src0 });
             if (src0) |data| {
                 self.SM_ctx.store_memory(self.cluster_ctx.id, self.thread_ctx.id, self.cluster_ctx.pc.get(), addr, @constCast(data));
-                self.cluster_ctx.wait.put(.{ self.cluster_ctx.id, addr });
+                // self.cluster_ctx.wait.put(.{ self.cluster_ctx.id, addr });
             }
+        },
+        .ld => {
+            const src0 = self.getSrcVal(ins.src0);
+            if (src0) |s| {
+                assert(ins.src1.kind == .none);
+                const addr = ALU.wrap(.u64, @constCast(s)).value.u64;
+                var temp = std.heap.c_allocator.alloc(u8, ALU.sizeOf(ins.dtype)) catch {
+                    @panic("broken temp");
+                };
+                const r_res = self.SM_ctx.mem.read(MemOptim.Request{
+                    .type = .read,
+                    .data = .{
+                        .read = .{
+                            .address = addr,
+                            .cluster_id = self.cluster_ctx.id,
+                            .thread_id = self.thread_ctx.id,
+                            .len = ALU.sizeOf(ins.dtype),
+                            .pc = self.cluster_ctx.pc.get(),
+                        },
+                    },
+                }, &temp);
+                if (r_res) |_| {
+                    self.putRegisterDstVal(ins, temp);
+                } else {
+                    self.cluster_ctx.wait.put(.{ self.thread_ctx.id, addr });
+                }
+            }
+            // self.putRegisterDstVal(ins, sl: []const u8);
         },
         else => {
             unreachable;
@@ -245,17 +275,20 @@ pub fn exec(self: *Self) !void {
     if (self.thread_ctx.done.get() == 1) {
         return;
     }
-    if (self.last_pc.get() == pc) {
-        self.thread_ctx.done.put(1);
-        return;
-    }
+    // if (self.last_pc.get() == pc) {
+    // self.thread_ctx.done.put(1);
+    // return;
+    // }
     if (raw_instr.len == 0) {
         self.thread_ctx.done.put(1);
         return;
     }
+    if (self.cluster_ctx.wait.active != 0) {
+        return;
+    }
     const v = std.mem.bytesToValue(Instruction, raw_instr);
     // std.log.debug("{any}", .{self.thread_ctx.id});
-    std.log.debug("id={any} SM={any} pc={any}", .{ self.thread_ctx.id, self.SM_ctx.id, self.cluster_ctx.pc.get() });
+    // std.log.debug("id={any} SM={any} pc={any}", .{ self.thread_ctx.id, self.SM_ctx.id, self.cluster_ctx.pc.get() });
     // std.log.debug("id={any} min_reg={any} max_reg={any}", .{ self.thread_ctx.id, self.thread_ctx.reg_min, self.thread_ctx.reg_max });
     // std.log.debug("id={any} SM={any} got={} raw={any}", .{ self.thread_ctx.id, self.SM_ctx.id, v, raw_instr });
     switch (v.format) {
@@ -269,7 +302,10 @@ pub fn exec(self: *Self) !void {
             unreachable;
         },
     }
-    self.thread_ctx.done.put(1);
+    if (self.cluster_ctx.wait.active == 0) {
+        self.thread_ctx.done.put(1);
+    }
+    // self.cluster_ctx.wait.debug();
     self.last_pc.put(@intCast(pc));
     if (constants.viz == 1) {
         try self.SM_ctx.tracker.?.add_node(0, .{

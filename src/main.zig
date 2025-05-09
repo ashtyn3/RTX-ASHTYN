@@ -32,9 +32,9 @@ pub fn main() !void {
     };
     const in2 = Core.Instruction{
         .format = .MEM,
-        .op = .mov,
+        .op = .st,
         .dtype = .u32,
-        .dst = .{ .kind = .reg, .value = 2 },
+        .dst = .{ .kind = .mem, .value = 1 },
         .src0 = .{ .kind = .reg, .value = 1 },
         .src1 = .{ .kind = .none, .value = 0 },
         .literal = 0,
@@ -42,22 +42,11 @@ pub fn main() !void {
         .flags = .{},
     };
     const in3 = Core.Instruction{
-        .format = .ALU,
-        .op = .add,
-        .dtype = .u32,
-        .dst = .{ .kind = .reg, .value = 3 },
-        .src0 = .{ .kind = .reg, .value = 1 },
-        .src1 = .{ .kind = .reg, .value = 2 },
-        .literal = 0,
-        .mod = .{},
-        .flags = .{},
-    };
-    const in4 = Core.Instruction{
         .format = .MEM,
-        .op = .st,
+        .op = .ld,
         .dtype = .u32,
-        .dst = .{ .kind = .mem, .value = 2 },
-        .src0 = .{ .kind = .reg, .value = 3 },
+        .dst = .{ .kind = .reg, .value = 6 },
+        .src0 = .{ .kind = .mem, .value = 1 },
         .src1 = .{ .kind = .none, .value = 0 },
         .literal = 0,
         .mod = .{},
@@ -66,7 +55,6 @@ pub fn main() !void {
     try prog.appendSlice(in.toBytes());
     try prog.appendSlice(in2.toBytes());
     try prog.appendSlice(in3.toBytes());
-    try prog.appendSlice(in4.toBytes());
     // try prog.appendSlice(&[_]u8{ 24, 4, 192, 0, 128, 1, 128, 1, 0, 180, 0, 0, 0, 0, 0, 0 });
     // try prog.appendNTimes(0, 13);
 
@@ -97,9 +85,9 @@ pub fn main() !void {
     // serve.serve();
     // dev.SMs.items[0].register_file.debug();
     // std.log.debug("{any}", .{dev.SMs.items[0].register_file});
-    // const sl = dev.SMs.items[0].register_file.get(3);
-    // const v = std.mem.readInt(u32, @ptrCast(sl.ptr), .little);
-    // std.log.debug("{d}", .{@as(u32, @bitCast(v))});
+    const sl = dev.SMs.items[0].register_file.get(6);
+    const v = std.mem.readInt(u32, @ptrCast(sl.ptr), .little);
+    std.log.debug("{d}", .{@as(u32, @bitCast(v))});
     // dev.SMs.items[0].register_file.debug();
     // std.log.info("==========================", .{});
     // dev.SMs.items[1].register_file.debug();

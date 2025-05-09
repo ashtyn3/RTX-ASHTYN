@@ -22,6 +22,7 @@ pub const ReadSend = struct {
     data: []u8,
     pc: u64,
     thread_id: u64,
+    cluster_id: u64,
     start: u64,
     len: u8,
 };
@@ -59,7 +60,7 @@ pub fn destroy(self: *Self) void {
 pub fn recieve_writes(self: *Self) void {
     for (self.write_recieving_bus.sink()) |recv| {
         if (recv.data.len != 0) {
-            assert(recv.data.len <= 32);
+            // assert(recv.data.len >= 32);
             const width = recv.address + recv.data.len;
             assert(width <= self.contigous.len);
             @memcpy(self.contigous[recv.address..width], recv.data[0..recv.data.len]);
@@ -67,8 +68,13 @@ pub fn recieve_writes(self: *Self) void {
     }
 }
 
-pub fn send_write(self: *Self, w: WriteRecieve) void {
-    self.write_recieving_bus.put(w);
+pub fn send_write(self: *Self, recv: WriteRecieve) void {
+    if (recv.data.len != 0) {
+        // assert(recv.data.len >= 32);
+        const width = recv.address + recv.data.len;
+        assert(width <= self.contigous.len);
+        @memcpy(self.contigous[recv.address..width], recv.data[0..recv.data.len]);
+    }
 }
 
 pub fn read(self: *Self, r: ReadRecieve) u32 {
@@ -76,16 +82,30 @@ pub fn read(self: *Self, r: ReadRecieve) u32 {
     self.read_recieving_bus.put(r);
     return request_id;
 }
+pub fn real_read(self: *Self, r: ReadRecieve) ReadSend {
+    return ReadSend{
+        .start = r.address,
+        .pc = r.pc,
+        .thread_id = r.thread_id,
+        .cluster_id = r.cluster_id,
+        .len = r.len,
+        .data = self.contigous[r.address..(r.address + r.len)],
+    };
+}
 pub fn complete_reads(self: *Self) void {
-    for (self.read_recieving_bus.sink()) |recv| {
-        if (recv.len != 0) {
-            self.read_sending_bus.put(.{
-                .start = recv.address,
-                .pc = recv.pc,
-                .thread_id = recv.thread_id,
-                .len = recv.len,
-                .data = self.contigous[recv.address..recv.len],
-            });
+    if (self.read_recieving_bus.active != 0) {
+        const data = self.read_recieving_bus.sink();
+        for (data) |recv| {
+            if (recv.len != 0) {
+                self.read_sending_bus.put(.{
+                    .start = recv.address,
+                    .pc = recv.pc,
+                    .thread_id = recv.thread_id,
+                    .cluster_id = recv.cluster_id,
+                    .len = recv.len,
+                    .data = self.contigous[recv.address..(recv.address + recv.len)],
+                });
+            }
         }
     }
 }

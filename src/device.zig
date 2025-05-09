@@ -73,7 +73,7 @@ pub fn launch(self: *Self, id: u64) !void {
             .signal = Bus(u1, 1).init(self.allocator) catch {
                 @panic("bad cluster signal state");
             },
-            .wait = Bus(struct { u64, u64 }, 32).init(self.allocator) catch {
+            .wait = Bus(struct { u64, u64 }, 33).init(self.allocator) catch {
                 @panic("bad wait signal state");
             },
         };

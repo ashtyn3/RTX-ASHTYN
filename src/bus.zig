@@ -50,8 +50,10 @@ pub fn Bus(Msg: type, width: ?u8) type {
         pub fn sink(self: *Self) []Msg {
             self.mut.lock();
             self.active = 0;
+            const copy = self.Q;
+            self.Q = std.mem.zeroes([w]Msg);
             self.mut.unlock();
-            return &self.Q;
+            return @constCast(&copy);
         }
 
         pub fn debug(self: *Self) void {
