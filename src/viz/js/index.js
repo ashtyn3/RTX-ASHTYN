@@ -1,41 +1,4 @@
-import { data } from "./profile.js";
-
-const workers = {
-  identifier: {
-    consumers: 2,
-    count: 20,
-  },
-  "lost-and-found": {
-    consumers: 1,
-    count: 1,
-    inputQueue: "identifier",
-    inputThroughput: 50,
-  },
-  monitor: {
-    consumers: 1,
-    count: 0,
-    inputQueue: "identifier",
-    inputThroughput: 50,
-  },
-  "meta-enricher": {
-    consumers: 4,
-    count: 9900,
-    inputQueue: "identifier",
-    inputThroughput: 50,
-  },
-  "geo-enricher": {
-    consumers: 2,
-    count: 1,
-    inputQueue: "meta-enricher",
-    inputThroughput: 50,
-  },
-  "elasticsearch-writer": {
-    consumers: 0,
-    count: 9900,
-    inputQueue: "geo-enricher",
-    inputThroughput: 50,
-  },
-};
+// import { data } from "./profile.js";
 
 // Set up zoom support
 const svg = d3.select("svg");
@@ -57,7 +20,8 @@ g.setGraph({
   marginy: 20,
 });
 
-function draw(isUpdate) {
+async function draw(isUpdate) {
+  const data = JSON.parse(await (await fetch("/kernel")).json());
   for (let i = 0; i < data.nodes.length; i++) {
     // if (worker.count > 10000) {
     //   className += " warn";

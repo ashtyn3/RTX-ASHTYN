@@ -79,12 +79,12 @@ pub fn main() !void {
         }
     }
     dev.debug();
-    // const d = try dev.kernel_tracker.?.to_json();
     // std.log.debug("{!s}", .{d});
     dev.global_memory.debug();
     if (constants.constants.viz == 1) {
+        const tracker_json = try dev.kernel_tracker.?.to_json();
         std.log.info("viz on: http://localhost:8080", .{});
-        serve.serve();
+        serve.serve(tracker_json);
     }
     // dev.SMs.items[0].register_file.debug();
     // std.log.debug("{any}", .{dev.SMs.items[0].register_file});

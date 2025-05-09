@@ -65,7 +65,7 @@ pub const KernelTracker = struct {
             var idx: usize = 0;
             while (idx < first_thread.items.len) {
                 const op = first_thread.items[idx];
-                if (op.instruction.dst.kind == .mem) {
+                if (op.instruction.dst.kind == .mem or op.instruction.src0.kind == .mem) {
                     if (has_mem.contains(op.pc)) {
                         _ = first_thread.orderedRemove(idx);
                         continue; // Don't increment idx, as items shift left
@@ -83,7 +83,7 @@ pub const KernelTracker = struct {
                     if (i == j) continue;
                     if (op_i.SM == op_j.SM and op_i.pc + 1 == op_j.pc) {
                         try k.edges.append(.{ i, j });
-                    } else if (op_j.instruction.dst.kind == .mem and op_i.pc + 1 == op_j.pc) {
+                    } else if ((op_j.instruction.dst.kind == .mem or op_j.instruction.src0.kind == .mem) and op_i.pc + 1 == op_j.pc) {
                         try k.edges.append(.{ i, j });
                     }
                 }
