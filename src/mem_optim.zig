@@ -19,11 +19,13 @@ pub const CacheLine = struct {
 pub const Cache = struct {
     lines: std.BoundedArray(CacheLine, 256),
     global: *memory.GlobalMemory,
+    allocator: std.mem.Allocator,
 
     pub fn init(a: std.mem.Allocator, g: *memory.GlobalMemory) !*Cache {
         var s = try a.create(Cache);
         s.lines = std.BoundedArray(CacheLine, 256){};
         s.global = g;
+        s.allocator = a;
         return s;
     }
     pub fn has(c: *Cache, address: u64) bool {
@@ -44,6 +46,10 @@ pub const Cache = struct {
             return true;
         }
         return false;
+    }
+    pub fn destroy(c: *Cache) void {
+        c.lines.clear();
+        c.allocator.destroy(c);
     }
     pub fn write(c: *Cache, address: u64, data: []u8) void {
         const offset_bits = 7; // log2(128)
@@ -114,6 +120,11 @@ pub fn init(a: std.mem.Allocator, g: *memory.GlobalMemory, sm: *SM) !*Self {
     return s;
 }
 
+pub fn destroy(self: *Self) void {
+    // self.SM_ctx.device.allocator.
+    self.requests.deinit();
+    self.L1.destroy();
+}
 pub fn proc(self: *Self) void {
     for (0..10) |_| {
         const req = self.requests.readItem();

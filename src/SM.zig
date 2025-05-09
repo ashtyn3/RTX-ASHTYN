@@ -63,10 +63,14 @@ pub fn destroy(self: *Self) void {
         self.device.allocator.destroy(c.done);
         self.device.allocator.destroy(c.pc);
         self.device.allocator.destroy(c.signal);
+        self.device.allocator.destroy(c.wait);
         self.device.allocator.destroy(c);
     }
     self.device.allocator.free(self.clusters);
+    self.mem.destroy();
+    self.device.allocator.destroy(self.mem);
     self.device.allocator.destroy(self);
+    // self.device.allocator.d
 }
 
 pub fn tasker(self: *Self) !void {

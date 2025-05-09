@@ -115,6 +115,9 @@ pub fn destroy(self: *Self) void {
         // self.allocator.destroy(s.global_memory_controller);
         // self.allocator.destroy(s.register_file);
     }
+    if (constants.viz == 1) {
+        self.kernel_tracker.?.destroy();
+    }
     self.SMs.deinit();
 }
 

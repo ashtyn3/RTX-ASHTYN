@@ -44,6 +44,9 @@ pub fn init(a: std.mem.Allocator, clock: *Clock) !*Self {
     };
     return s;
 }
+pub fn destroy(self: *Self) void {
+    self.allocator.free(self.contigous);
+}
 
 pub fn send_write(self: *Self, recv: WriteRecieve) void {
     if (recv.data.len != 0) {

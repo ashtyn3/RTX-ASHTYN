@@ -18,6 +18,7 @@ pub const Graph = struct {
 
 pub const KernelTracker = struct {
     kernels: []Graph,
+    allocator: std.mem.Allocator,
 
     pub fn init(a: std.mem.Allocator) !KernelTracker {
         const data = try a.alloc(Graph, 1);
@@ -30,7 +31,18 @@ pub const KernelTracker = struct {
         }
         return KernelTracker{
             .kernels = data,
+            .allocator = a,
         };
+    }
+    pub fn destroy(self: *KernelTracker) void {
+        // _ = self; // autofix
+        for (self.kernels) |*k| {
+            k.edges.deinit();
+            k.nodes.deinit();
+            //     self.allocator.destroy(k);
+        }
+        // self.allocator.destroy(self);
+        self.allocator.free(self.kernels);
     }
     pub fn add_node(self: *KernelTracker, id: u8, op: GraphOp) !void {
         self.kernels[id].mutex.lock();
