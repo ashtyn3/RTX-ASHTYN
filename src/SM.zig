@@ -102,7 +102,6 @@ pub fn scheduler(self: *Self) !void {
             // const tr = try std.Thread.spawn(.{}, GlobalMemory.complete_reads, .{self.global_memory_controller});
             // tw.join();
             // tr.join();
-            try self.tasker();
             const pr = try std.Thread.spawn(.{}, MemOptim.proc, .{self.mem});
             pr.join();
 
@@ -132,6 +131,7 @@ pub fn scheduler(self: *Self) !void {
             }
         }
         self.device.clock.tick();
+        try self.tasker();
     }
 }
 

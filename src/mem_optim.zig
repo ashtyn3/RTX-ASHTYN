@@ -115,7 +115,7 @@ pub fn init(a: std.mem.Allocator, g: *memory.GlobalMemory, sm: *SM) !*Self {
 }
 
 pub fn proc(self: *Self) void {
-    for (0..self.requests.count) |_| {
+    for (0..10) |_| {
         const req = self.requests.readItem();
         if (req) |r| {
             if (r.type == .read) {
@@ -137,7 +137,6 @@ pub fn write(self: *Self, r: Request) void {
 pub fn read(self: *Self, r: Request, buf: *[]u8) ?[]u8 {
     if (self.L1.has(r.data.read.address)) {
         const data = self.L1.access(r.data.read.cluster_id, r.data.read.thread_id, r.data.read.pc, r.data.read.address, r.data.read.len);
-
         @memcpy(buf.ptr, data);
         return @constCast(data);
     }

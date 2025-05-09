@@ -82,7 +82,10 @@ pub fn main() !void {
     // const d = try dev.kernel_tracker.?.to_json();
     // std.log.debug("{!s}", .{d});
     dev.global_memory.debug();
-    // serve.serve();
+    if (constants.constants.viz == 1) {
+        std.log.info("viz on: http://localhost:8080", .{});
+        serve.serve();
+    }
     // dev.SMs.items[0].register_file.debug();
     // std.log.debug("{any}", .{dev.SMs.items[0].register_file});
     const sl = dev.SMs.items[0].register_file.get(6);
