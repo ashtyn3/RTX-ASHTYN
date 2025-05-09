@@ -19,42 +19,50 @@ pub fn main() !void {
     dev.setSignal();
 
     var prog = std.ArrayList(u8).init(allocator);
-    const in = Core.Instruction{
+    try prog.appendSlice((Core.Instruction{
+        .format = .MEM,
+        .op = .mov,
+        .dtype = .u64,
+        .dst = .{ .kind = .reg, .value = 1 },
+        .src0 = .{ .kind = .sys_reg, .value = 0 },
+        .src1 = .{ .kind = .none, .value = 0 },
+        .literal = 0,
+        .mod = .{},
+        .flags = .{},
+    }).toBytes());
+    try prog.appendSlice((Core.Instruction{
         .format = .MEM,
         .op = .mov,
         .dtype = .u32,
-        .dst = .{ .kind = .reg, .value = 1 },
+        .dst = .{ .kind = .reg, .value = 3 },
         .src0 = .{ .kind = .none, .value = 0 },
         .src1 = .{ .kind = .none, .value = 0 },
-        .literal = @bitCast(@as(u32, 32)),
+        .literal = 4,
         .mod = .{},
         .flags = .{},
-    };
-    const in2 = Core.Instruction{
+    }).toBytes());
+    try prog.appendSlice((Core.Instruction{
+        .format = .ALU,
+        .op = .mul,
+        .dtype = .u32,
+        .dst = .{ .kind = .reg, .value = 5 },
+        .src0 = .{ .kind = .reg, .value = 1 },
+        .src1 = .{ .kind = .reg, .value = 3 },
+        .literal = 0,
+        .mod = .{},
+        .flags = .{},
+    }).toBytes());
+    try prog.appendSlice((Core.Instruction{
         .format = .MEM,
         .op = .st,
         .dtype = .u32,
-        .dst = .{ .kind = .mem, .value = 1 },
+        .dst = .{ .kind = .reg, .value = 5 },
         .src0 = .{ .kind = .reg, .value = 1 },
         .src1 = .{ .kind = .none, .value = 0 },
         .literal = 0,
         .mod = .{},
         .flags = .{},
-    };
-    const in3 = Core.Instruction{
-        .format = .MEM,
-        .op = .ld,
-        .dtype = .u32,
-        .dst = .{ .kind = .reg, .value = 6 },
-        .src0 = .{ .kind = .mem, .value = 1 },
-        .src1 = .{ .kind = .none, .value = 0 },
-        .literal = 0,
-        .mod = .{},
-        .flags = .{},
-    };
-    try prog.appendSlice(in.toBytes());
-    try prog.appendSlice(in2.toBytes());
-    try prog.appendSlice(in3.toBytes());
+    }).toBytes());
     // try prog.appendSlice(&[_]u8{ 24, 4, 192, 0, 128, 1, 128, 1, 0, 180, 0, 0, 0, 0, 0, 0 });
     // try prog.appendNTimes(0, 13);
 
@@ -79,18 +87,17 @@ pub fn main() !void {
         }
     }
     dev.debug();
-    // std.log.debug("{!s}", .{d});
-    dev.global_memory.debug();
+
+    // std.log.debug("{any}", .{dev.SMs.items[0].register_file.get(15)});
     if (constants.constants.viz == 1) {
         const tracker_json = try dev.kernel_tracker.?.to_json();
         std.log.info("viz on: http://localhost:8080", .{});
         serve.serve(tracker_json);
     }
-    // dev.SMs.items[0].register_file.debug();
     // std.log.debug("{any}", .{dev.SMs.items[0].register_file});
-    const sl = dev.SMs.items[0].register_file.get(6);
-    const v = std.mem.readInt(u32, @ptrCast(sl.ptr), .little);
-    std.log.debug("{d}", .{@as(u32, @bitCast(v))});
+    // const sl = dev.SMs.items[0].register_file.get(2);
+    // const v = std.mem.readInt(u32, @ptrCast(sl.ptr), .little);
+    // std.log.debug("{d}", .{@as(u32, @bitCast(v))});
     // dev.SMs.items[0].register_file.debug();
     // std.log.info("==========================", .{});
     // dev.SMs.items[1].register_file.debug();

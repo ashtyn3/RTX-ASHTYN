@@ -102,8 +102,9 @@ pub fn scheduler(self: *Self) !void {
             // const tr = try std.Thread.spawn(.{}, GlobalMemory.complete_reads, .{self.global_memory_controller});
             // tw.join();
             // tr.join();
-            const pr = try std.Thread.spawn(.{}, MemOptim.proc, .{self.mem});
-            pr.join();
+            // const pr = try std.Thread.spawn(.{}, MemOptim.proc, .{self.mem});
+            // pr.join();
+            self.mem.proc();
 
             var done: u8 = 0;
             for (self.clusters) |cluster| {
@@ -125,7 +126,7 @@ pub fn scheduler(self: *Self) !void {
                     }
                 }
             }
-            if (self.clusters.len == done) {
+            if (self.clusters.len == done and self.mem.requests.count == 0) {
                 self.device.returned.put(self.device.returned.get() + 1);
                 break;
             }

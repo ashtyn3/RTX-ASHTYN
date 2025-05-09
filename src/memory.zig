@@ -28,7 +28,7 @@ pub const ReadSend = struct {
 };
 clock: *Clock,
 
-contigous: [constants.shared_mem_len]u8,
+contigous: []u8,
 
 allocator: std.mem.Allocator,
 
@@ -36,9 +36,10 @@ const Self = @This();
 
 pub fn init(a: std.mem.Allocator, clock: *Clock) !*Self {
     const s = try a.create(Self);
+    const mem = try a.alloc(u8, constants.shared_mem_len);
     s.* = .{
         .clock = clock,
-        .contigous = std.mem.zeroes([constants.shared_mem_len]u8),
+        .contigous = mem,
         .allocator = a,
     };
     return s;
@@ -49,15 +50,18 @@ pub fn send_write(self: *Self, recv: WriteRecieve) void {
         // assert(recv.data.len >= 32);
         const width = recv.address + recv.data.len;
         assert(width <= self.contigous.len);
-        @memcpy(self.contigous[recv.address..width], recv.data[0..recv.data.len]);
+        // self.contigous[recv.address] = 1;
+        // var list = std.ArrayList(u8).init(std.heap.c_allocator);
+        // list.appendSlice(recv.data.ptr) catch {
+        //     @panic("failed");
+        // };
+        // for (recv.data) |b| {
+        //     self.contigous[
+        // }
+        @memcpy(self.contigous[recv.address..width].ptr, recv.data[0..recv.data.len]);
     }
 }
 
-pub fn read(self: *Self, r: ReadRecieve) u32 {
-    const request_id = self.read_recieving_bus.active;
-    self.read_recieving_bus.put(r);
-    return request_id;
-}
 pub fn real_read(self: *Self, r: ReadRecieve) ReadSend {
     return ReadSend{
         .start = r.address,

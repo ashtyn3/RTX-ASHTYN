@@ -68,7 +68,7 @@ pub const Modifier = packed struct {
     omod: u2 = 0, // 0 = none, 1 = *2, 2 = *4, 3 = /2
 };
 pub const Operand = packed struct {
-    kind: enum(u2) { reg, mem, none },
+    kind: enum(u2) { reg, sys_reg, mem, none },
     value: u16,
 };
 
@@ -107,13 +107,13 @@ pub fn dtypeAsSlice(dtype: DataType, lit: anytype) []const u8 {
             return intAsSlice(u64, lit);
         },
         .f32 => {
-            return intAsSlice(u32, lit);
+            return intAsSlice(u32, @intCast(lit));
         },
         .u16 => {
             return intAsSlice(u16, @intCast(lit));
         },
         .u32 => {
-            return intAsSlice(u32, lit);
+            return intAsSlice(u32, @intCast(lit));
         },
         .u64 => {
             return intAsSlice(u64, lit);
@@ -122,16 +122,16 @@ pub fn dtypeAsSlice(dtype: DataType, lit: anytype) []const u8 {
             return intAsSlice(u8, @intCast(lit));
         },
         .b64 => {
-            return intAsSlice(u64, @intCast(lit));
+            return intAsSlice(i64, @intCast(lit));
         },
         .b32 => {
-            return intAsSlice(u32, @intCast(lit));
+            return intAsSlice(i32, @intCast(lit));
         },
         .b16 => {
-            return intAsSlice(u16, @intCast(lit));
+            return intAsSlice(i16, @intCast(lit));
         },
         .b8 => {
-            return intAsSlice(u8, @intCast(lit));
+            return intAsSlice(i8, @intCast(lit));
         },
         .none => {
             unreachable;
@@ -140,22 +140,40 @@ pub fn dtypeAsSlice(dtype: DataType, lit: anytype) []const u8 {
     return &[_]u8{};
 }
 
-fn getSrcVal(self: *Self, op: Operand) ?[]const u8 {
+fn getSrcVal(self: *Self, dtype: DataType, op: Operand) ?[]const u8 {
     if (op.kind == .none) {
         return null;
     }
     if (op.kind == .reg) {
+        if (ALU.sizeOf(dtype) == 8) {
+            const r_data = self.register_file.get(self.thread_ctx.reg_min + op.value);
+            const r_data2 = self.register_file.get(self.thread_ctx.reg_min + op.value + 1);
+            const data = self.SM_ctx.device.allocator.alloc(u8, 8) catch {
+                @panic("broken");
+            };
+            @memcpy(data[0..4].ptr, r_data[0..4]);
+            @memcpy(data[4..8].ptr, r_data2[0..4]);
+            return data;
+        }
         const r_data = self.register_file.get(self.thread_ctx.reg_min + op.value);
         // var data = [_]u8{0} ** 4;
         // @memcpy(data[0..4].ptr, r_data[0..4]);
         return r_data;
     }
+    if (op.kind == .sys_reg) {
+        switch (op.value) {
+            0 => return dtypeAsSlice(.u64, self.thread_ctx.id),
+            else => {
+                @panic("bad system register");
+            },
+        }
+    }
     if (op.kind == .mem) {
         const r_data = self.register_file.get(self.thread_ctx.reg_min + op.value);
         const r_data2 = self.register_file.get(self.thread_ctx.reg_min + op.value + 1);
         var data = [_]u8{0} ** 8;
-        @memcpy(data[0..1].ptr, r_data[0..1]);
-        @memcpy(data[2..4].ptr, r_data2[2..4]);
+        @memcpy(data[0..4].ptr, r_data[0..4]);
+        @memcpy(data[4..8].ptr, r_data2[0..4]);
         return &data;
     }
     return null;
@@ -164,8 +182,8 @@ fn getSrcVal(self: *Self, op: Operand) ?[]const u8 {
 fn putRegisterDstVal(self: *Self, ins: Instruction, sl: []const u8) void {
     if (ins.dtype == .f64 or ins.dtype == .b64 or ins.dtype == .u64) {
         assert((ins.dst.value + 1) <= (self.thread_ctx.reg_max - self.thread_ctx.reg_min)); // spread 64 bit numbers into two consecutive registers
-        self.register_file.set(self.thread_ctx.reg_min + ins.dst.value, sl[0..1]);
-        self.register_file.set(self.thread_ctx.reg_min + ins.dst.value + 1, sl[2..4]);
+        self.register_file.set(self.thread_ctx.reg_min + ins.dst.value, sl[0..4]);
+        self.register_file.set(self.thread_ctx.reg_min + ins.dst.value + 1, sl[5..8]);
     } else {
         self.register_file.set(self.thread_ctx.reg_min + ins.dst.value, sl);
     }
@@ -182,14 +200,14 @@ fn mem_ops(self: *Self, ins: Instruction) !void {
                     if (ins.src0.kind == .none and ins.src1.kind == .none) { // move literal to register
                         self.putRegisterDstVal(ins, dtypeAsSlice(ins.dtype, ins.literal));
                     } else { // move to other register
-                        const src0 = self.getSrcVal(ins.src0);
-                        const src1 = self.getSrcVal(ins.src1);
+                        const src0 = self.getSrcVal(ins.dtype, ins.src0);
+                        const src1 = self.getSrcVal(ins.dtype, ins.src1);
                         if (src0) |s0| {
-                            assert(ins.src0.kind == .reg);
+                            assert(ins.src0.kind == .reg or ins.src0.kind == .sys_reg);
                             self.putRegisterDstVal(ins, s0);
                         }
                         if (src1) |s1| {
-                            assert(ins.src1.kind == .reg);
+                            assert(ins.src1.kind == .reg or ins.src1.kind == .sys_reg);
                             self.putRegisterDstVal(ins, s1);
                         }
                     }
@@ -200,9 +218,9 @@ fn mem_ops(self: *Self, ins: Instruction) !void {
             }
         },
         .st => {
-            const src0 = self.getSrcVal(ins.src0);
+            const src0 = self.getSrcVal(ins.dtype, ins.src0);
             assert(ins.src1.kind == .none);
-            const dst = self.getSrcVal(ins.dst);
+            const dst = self.getSrcVal(.u64, ins.dst);
             const addr = ALU.wrap(.u64, @constCast(dst.?)).value.u64;
             if (src0) |data| {
                 self.SM_ctx.store_memory(self.cluster_ctx.id, self.thread_ctx.id, self.cluster_ctx.pc.get(), addr, @constCast(data));
@@ -210,7 +228,7 @@ fn mem_ops(self: *Self, ins: Instruction) !void {
             }
         },
         .ld => {
-            const src0 = self.getSrcVal(ins.src0);
+            const src0 = self.getSrcVal(ins.dtype, ins.src0);
             if (src0) |s| {
                 assert(ins.src1.kind == .none);
                 const addr = ALU.wrap(.u64, @constCast(s)).value.u64;
@@ -244,10 +262,9 @@ fn mem_ops(self: *Self, ins: Instruction) !void {
 }
 pub fn ALU_handle(self: *Self, ins: Instruction) !void {
     if (ins.src0.kind != .none and ins.src1.kind != .none) {
-        const arg1 = ALU.wrap(ins.dtype, @constCast(self.getSrcVal(ins.src0).?));
-        const arg2 = ALU.wrap(ins.dtype, @constCast(self.getSrcVal(ins.src1).?));
+        const arg1 = ALU.wrap(ins.dtype, @constCast(self.getSrcVal(ins.dtype, ins.src0).?));
+        const arg2 = ALU.wrap(ins.dtype, @constCast(self.getSrcVal(ins.dtype, ins.src1).?));
 
-        // std.log.debug("{any} + {any}", .{ arg1, arg2 });
         const v = switch (ins.op) {
             .add => arg1.add(arg2),
             .sub => arg1.sub(arg2),
